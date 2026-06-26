@@ -1,0 +1,27 @@
+# OS
+.DS_Store
+
+# Env & secrets
+.env
+.env.local
+.env.*.local
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.db
+
+# Node
+node_modules/
+.next/
+out/
+build/
+
+# IDE
+.idea/
+.vscode/
+
+# Data (local dev only — Railway uses mounted volume)
+backend/data/

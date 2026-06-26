@@ -1,0 +1,10 @@
+# Root config — Railway uses per-service "Root Directory" instead.
+# See DEPLOY.md for the two-service setup (backend + frontend).
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "backend/Dockerfile"
+
+[deploy]
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3
