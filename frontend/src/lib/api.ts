@@ -61,6 +61,12 @@ export const api = {
       }),
     }),
   getCard: (cardId: number) => request<Card>(`/api/cards/${cardId}`),
+  /** Request overview on demand; returns cached card when already ready. */
+  requestOverview: (cardId: number, force = false) =>
+    request<Card>(`/api/cards/${cardId}/overview`, {
+      method: "POST",
+      body: JSON.stringify({ force }),
+    }),
   regenerateOverview: (cardId: number) =>
     request<Card>(`/api/cards/${cardId}/overview/regenerate`, { method: "POST" }),
 };

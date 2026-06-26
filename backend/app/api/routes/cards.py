@@ -5,6 +5,7 @@ from app.api.schemas import (
     CardResponse,
     CreateCardRequest,
     DailyStatsResponse,
+    RequestOverviewBody,
     StatsResponse,
     SubmitReviewRequest,
     UpdateCardRequest,
@@ -66,10 +67,20 @@ def _enqueue_overview(background_tasks: BackgroundTasks, card_id: int) -> None:
         background_tasks.add_task(generate_overview_for_card, card_id)
 
 
+def _needs_overview_generation(status: str, overview: str | None, *, force: bool) -> bool:
+    if force:
+        return True
+    if status == "generating":
+        return False
+    if status == "ready" and overview:
+        return False
+    # idle, failed, legacy pending — generate on first request
+    return status in ("idle", "failed", "pending")
+
+
 @router.post("/cards", response_model=CardResponse)
 async def create_card(
     body: CreateCardRequest,
-    background_tasks: BackgroundTasks,
     repo: CardRepository = Depends(_repo),
 ) -> CardResponse:
     card = await repo.create(
@@ -81,7 +92,6 @@ async def create_card(
     if not card or not card.schedule:
         raise HTTPException(status_code=500, detail="Failed to create card")
 
-    _enqueue_overview(background_tasks, card.id)
     return _to_response(card)
 
 
@@ -109,10 +119,9 @@ async def get_card(card_id: int, repo: CardRepository = Depends(_repo)) -> CardR
 async def update_card(
     card_id: int,
     body: UpdateCardRequest,
-    background_tasks: BackgroundTasks,
     repo: CardRepository = Depends(_repo),
 ) -> CardResponse:
-    card, english_changed = await repo.update(
+    card, _english_changed = await repo.update(
         card_id,
         english=body.english,
         translation=body.translation,
@@ -122,10 +131,32 @@ async def update_card(
     if not card:
         raise HTTPException(status_code=404, detail="Card not found")
 
-    if english_changed:
+    return _to_response(card)
+
+
+@router.post("/cards/{card_id}/overview", response_model=CardResponse)
+async def request_overview(
+    card_id: int,
+    body: RequestOverviewBody,
+    background_tasks: BackgroundTasks,
+    repo: CardRepository = Depends(_repo),
+) -> CardResponse:
+    """Generate overview on demand — cached result is returned without calling LLM."""
+    if not get_overview_generator():
+        raise HTTPException(status_code=503, detail="LLM overview is disabled")
+
+    card = await repo.get_by_id(card_id)
+    if not card:
+        raise HTTPException(status_code=404, detail="Card not found")
+
+    if _needs_overview_generation(card.overview_status, card.overview, force=body.force):
+        if body.force:
+            card.overview = None
+        await repo.set_overview_status(card_id, "generating")
         _enqueue_overview(background_tasks, card_id)
 
-    return _to_response(card)
+    card = await repo.get_by_id(card_id)
+    return _to_response(card)  # type: ignore[arg-type]
 
 
 @router.post("/cards/{card_id}/overview/regenerate", response_model=CardResponse)
@@ -134,18 +165,13 @@ async def regenerate_overview(
     background_tasks: BackgroundTasks,
     repo: CardRepository = Depends(_repo),
 ) -> CardResponse:
-    if not get_overview_generator():
-        raise HTTPException(status_code=503, detail="LLM overview is disabled")
-
-    card = await repo.get_by_id(card_id)
-    if not card:
-        raise HTTPException(status_code=404, detail="Card not found")
-
-    await repo.set_overview_status(card_id, "pending")
-    _enqueue_overview(background_tasks, card_id)
-
-    card = await repo.get_by_id(card_id)
-    return _to_response(card)  # type: ignore[arg-type]
+    """Force a fresh overview (retry after failure or manual refresh)."""
+    return await request_overview(
+        card_id,
+        RequestOverviewBody(force=True),
+        background_tasks,
+        repo,
+    )
 
 
 @router.post("/cards/{card_id}/review", response_model=CardResponse)
@@ -169,26 +195,6 @@ async def submit_review(
         raise HTTPException(status_code=404, detail="Card not found")
 
     return _to_response(card)
-
-
-@router.post("/overview/regenerate-failed")
-async def regenerate_failed_overviews(
-    background_tasks: BackgroundTasks,
-    repo: CardRepository = Depends(_repo),
-) -> dict:
-    if not get_overview_generator():
-        raise HTTPException(status_code=503, detail="LLM overview is disabled")
-
-    cards = await repo.list_all()
-    failed_ids = [
-        c.id for c in cards
-        if c.overview_status in ("failed", "pending") and not c.overview
-    ]
-    for card_id in failed_ids:
-        await repo.set_overview_status(card_id, "pending")
-        _enqueue_overview(background_tasks, card_id)
-
-    return {"queued": len(failed_ids), "card_ids": failed_ids}
 
 
 @router.get("/llm/status")

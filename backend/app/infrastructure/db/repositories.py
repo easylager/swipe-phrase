@@ -34,7 +34,7 @@ class CardRepository:
             translation=translation.strip(),
             context=context.strip() if context else None,
             cluster=cluster.strip() if cluster else None,
-            overview_status="pending" if settings.llm_provider.lower() != "none" else "skipped",
+            overview_status="idle" if settings.llm_provider.lower() != "none" else "skipped",
         )
         self._session.add(card)
         await self._session.flush()
@@ -270,7 +270,7 @@ class CardRepository:
 
         if english_changed and settings.llm_provider.lower() != "none":
             card.overview = None
-            card.overview_status = "pending"
+            card.overview_status = "idle"
 
         await self._session.commit()
         updated = await self.get_by_id(card_id)

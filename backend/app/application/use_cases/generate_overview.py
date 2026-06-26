@@ -19,6 +19,10 @@ async def generate_overview_for_card(card_id: int) -> None:
         if not card:
             return
 
+        # Idempotent guard — overview is generated once unless explicitly forced.
+        if card.overview_status == "ready" and card.overview:
+            return
+
         await repo.set_overview_status(card_id, "generating")
 
         try:

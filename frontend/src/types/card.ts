@@ -7,7 +7,7 @@ export interface Card {
   context: string | null;
   cluster: string | null;
   overview: string | null;
-  overview_status: "pending" | "generating" | "ready" | "failed" | "skipped";
+  overview_status: "idle" | "generating" | "ready" | "failed" | "skipped" | "pending";
   state: string;
   due: string;
   bucket?: string | null;

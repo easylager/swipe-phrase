@@ -23,9 +23,7 @@ COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 
-EXPOSE 3000
-
 ENV HOSTNAME=0.0.0.0
-ENV PORT=3000
 
-CMD ["node", "server.js"]
+# Railway injects $PORT at runtime — must not hardcode 3000
+CMD ["sh", "-c", "node server.js"]

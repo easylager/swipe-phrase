@@ -51,7 +51,7 @@ export function OverviewSheet({
           </button>
         </div>
 
-        {status === "generating" || status === "pending" ? (
+        {status === "generating" || status === "idle" || status === "pending" ? (
           <div className="flex items-center gap-3 py-8 text-zinc-400">
             <div className="h-5 w-5 animate-spin rounded-full border-2 border-violet-400 border-t-transparent" />
             <span className="text-sm">Нейросеть пишет обзор...</span>
@@ -60,8 +60,7 @@ export function OverviewSheet({
           <div className="py-6 text-center">
             <p className="text-sm text-zinc-400">Не удалось сгенерировать обзор</p>
             <p className="mt-2 text-xs text-zinc-500">
-              Убедись что Ollama запущен:{" "}
-              <code className="rounded bg-white/5 px-1">brew services start ollama</code>
+              Проверь GROQ_API_KEY на сервере или попробуй ещё раз
             </p>
             {onRegenerate && (
               <button
@@ -92,13 +91,14 @@ export function OverviewButton({ status, onClick }: OverviewButtonProps) {
   if (status === "skipped") return null;
 
   const labels: Record<string, string> = {
-    pending: "Обзор…",
+    idle: "Обзор",
+    pending: "Обзор",
     generating: "Обзор…",
     ready: "Обзор",
     failed: "Обзор ✕",
   };
 
-  const isLoading = status === "pending" || status === "generating";
+  const isLoading = status === "generating";
 
   return (
     <button

@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { motion } from "framer-motion";
 import type { Card } from "@/types/card";
+import { api } from "@/lib/api";
 import { useSpeech } from "@/hooks/useSpeech";
 import { OverviewButton, OverviewSheet } from "@/components/OverviewSheet";
 import { CardEditSheet } from "@/components/CardEditSheet";
@@ -13,7 +14,9 @@ interface FlashCardProps {
   card: Card;
   isFlipped: boolean;
   onReview?: (rating: "again" | "graduated") => void;
+  onRequestOverview?: () => Promise<void>;
   onRegenerateOverview?: () => void;
+  onCardUpdate?: (card: Card) => void;
   onEdit?: (payload: {
     english: string;
     translation: string;
@@ -60,7 +63,9 @@ export function FlashCard({
   card,
   isFlipped,
   onReview,
+  onRequestOverview,
   onRegenerateOverview,
+  onCardUpdate,
   onEdit,
   disabled,
   preview = false,
@@ -72,6 +77,29 @@ export function FlashCard({
   const faces = getCardFaces(card);
   const frontClass = phraseTextClass(faces.frontText);
   const backClass = phraseTextClass(faces.backText);
+
+  const handleOpenOverview = async () => {
+    setShowOverview(true);
+    if (card.overview_status === "ready" && card.overview) return;
+    if (card.overview_status === "generating") return;
+    await onRequestOverview?.();
+  };
+
+  // Poll only while the overview sheet is open and LLM is working.
+  useEffect(() => {
+    if (!showOverview || card.overview_status !== "generating" || !onCardUpdate) return;
+
+    const timer = setInterval(async () => {
+      try {
+        const updated = await api.getCard(card.id);
+        onCardUpdate(updated);
+      } catch {
+        /* ignore */
+      }
+    }, 2000);
+
+    return () => clearInterval(timer);
+  }, [showOverview, card.overview_status, card.id, onCardUpdate]);
 
   return (
     <div className="pointer-events-none relative flex h-full w-full flex-col overflow-hidden rounded-3xl border border-white/10 bg-zinc-900 shadow-2xl shadow-black/40 perspective-[1200px]">
@@ -163,7 +191,7 @@ export function FlashCard({
             <div className="flex items-center gap-3">
               <OverviewButton
                 status={card.overview_status}
-                onClick={() => setShowOverview(true)}
+                onClick={() => void handleOpenOverview()}
               />
               {onEdit && (
                 <button

@@ -21,6 +21,11 @@ class SubmitReviewRequest(BaseModel):
     answer_latency_ms: int | None = Field(None, ge=0)
 
 
+class RequestOverviewBody(BaseModel):
+    """force=true re-generates even when a cached overview exists."""
+    force: bool = False
+
+
 class CardResponse(BaseModel):
     id: int
     english: str

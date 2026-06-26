@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { animate, motion } from "framer-motion";
 import { api } from "@/lib/api";
-import { buildFeedQueue, isCardItem, mergeFeedQueue } from "@/lib/feedQueue";
+import { buildFeedQueue, isCardItem } from "@/lib/feedQueue";
 import type { Card, Stats } from "@/types/card";
 import type { FeedItem } from "@/types/feed";
 import { AdCard } from "@/components/AdCard";
@@ -43,25 +43,14 @@ export function SwipeFeed() {
     loadSession();
   }, [loadSession]);
 
-  useEffect(() => {
-    const pending = feed.some(
-      (item) =>
-        isCardItem(item) &&
-        (item.card.overview_status === "pending" || item.card.overview_status === "generating"),
+  const updateCardInFeed = useCallback((updated: Card) => {
+    setFeed((prev) =>
+      prev.map((item) => {
+        if (!isCardItem(item) || item.card.id !== updated.id) return item;
+        return { ...item, card: { ...updated, prompt_lang: item.card.prompt_lang } };
+      }),
     );
-    if (!pending) return;
-
-    const timer = setInterval(async () => {
-      try {
-        const session = await api.getSession();
-        setFeed((prev) => mergeFeedQueue(prev, session));
-      } catch {
-        /* ignore */
-      }
-    }, 3000);
-
-    return () => clearInterval(timer);
-  }, [feed]);
+  }, []);
 
   const current = feed[index];
   const next = feed[index + 1];
@@ -165,16 +154,21 @@ export function SwipeFeed() {
     [currentCard, goNext, y, bumpSwipes],
   );
 
+  const handleRequestOverview = async () => {
+    if (!currentCard) return;
+    try {
+      const updated = await api.requestOverview(currentCard.id);
+      updateCardInFeed(updated);
+    } catch {
+      /* handled in sheet */
+    }
+  };
+
   const handleRegenerateOverview = async () => {
     if (!currentCard) return;
     try {
       const updated = await api.regenerateOverview(currentCard.id);
-      setFeed((prev) =>
-        prev.map((item) => {
-          if (!isCardItem(item) || item.card.id !== updated.id) return item;
-          return { ...item, card: { ...updated, prompt_lang: item.card.prompt_lang } };
-        }),
-      );
+      updateCardInFeed(updated);
     } catch {
       /* handled in sheet */
     }
@@ -188,12 +182,7 @@ export function SwipeFeed() {
   }) => {
     if (!currentCard) return;
     const updated = await api.updateCard(currentCard.id, payload);
-    setFeed((prev) =>
-      prev.map((item) => {
-        if (!isCardItem(item) || item.card.id !== updated.id) return item;
-        return { ...item, card: { ...updated, prompt_lang: item.card.prompt_lang } };
-      }),
-    );
+    updateCardInFeed(updated);
   };
 
   const renderFeedItem = (item: FeedItem, flipped: boolean, preview = false) => {
@@ -206,7 +195,9 @@ export function SwipeFeed() {
         card={item.card}
         isFlipped={flipped}
         onReview={preview ? undefined : submitAndAdvance}
+        onRequestOverview={preview ? undefined : handleRequestOverview}
         onRegenerateOverview={preview ? undefined : handleRegenerateOverview}
+        onCardUpdate={preview ? undefined : updateCardInFeed}
         onEdit={preview ? undefined : handleEditCard}
         disabled={busy}
         preview={preview}

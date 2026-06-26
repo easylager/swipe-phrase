@@ -25,7 +25,7 @@ class SessionCandidate:
     priority: float
     bucket: str
     overview: str | None = None
-    overview_status: str = "pending"
+    overview_status: str = "idle"
 
 
 class SessionBuilder:
