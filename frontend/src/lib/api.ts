@@ -20,12 +20,26 @@ async function parseError(res: Response): Promise<string> {
   const text = await res.text();
   try {
     const json = JSON.parse(text) as { detail?: string | { msg: string }[] };
-    if (typeof json.detail === "string") return json.detail;
+    if (typeof json.detail === "string") {
+      if (json.detail === "User not found") {
+        return "Сессия устарела. Войди снова (сервер мог перезапуститься).";
+      }
+      if (json.detail === "Invalid email or password") {
+        return "Неверный email или пароль. Если только что зарегистрировался — база могла сброситься, зарегистрируйся снова.";
+      }
+      return json.detail;
+    }
     if (Array.isArray(json.detail) && json.detail[0]?.msg) return json.detail[0].msg;
   } catch {
     /* plain text */
   }
   return text || `Request failed: ${res.status}`;
+}
+
+function notifyAuthExpired() {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event("auth:expired"));
+  }
 }
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
@@ -41,6 +55,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 
   if (res.status === 401 && token) {
     clearToken();
+    notifyAuthExpired();
   }
 
   if (!res.ok) {

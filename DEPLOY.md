@@ -49,12 +49,21 @@ FRONTEND_URL=https://YOUR-FRONTEND.up.railway.app
 JWT_SECRET=your-random-secret-at-least-32-chars
 ```
 
-**Volume (обязательно для SQLite):**
+**Volume (обязательно для SQLite + auth):**
 
 - Mount path: `/app/data`
 - Size: 1 GB
+- **Replicas: 1** (Settings → Scaling) — SQLite не работает с несколькими инстансами
 
-Без volume база сбросится при каждом redeploy.
+Без volume или с 2+ репликами: регистрация «успешна», но карточки падают с **User not found**, логин — **Invalid email or password**.
+
+**Лучше для production:** добавь **PostgreSQL** в Railway (New → Database → PostgreSQL), подключи к backend — `DATABASE_URL` подставится автоматически. Тогда volume для SQLite не нужен.
+
+После деплоя проверь:
+```bash
+curl https://YOUR-BACKEND.up.railway.app/health/db
+# → {"status":"ok","backend":"sqlite","users":0}
+```
 
 После деплоя скопируй публичный URL бэкенда, например:
 `https://phrase-feed-backend.up.railway.app`
@@ -126,5 +135,7 @@ LLM_PROVIDER=ollama
 | CORS error | Проверь `FRONTEND_URL` на backend |
 | API не отвечает | Проверь `NEXT_PUBLIC_API_URL` на frontend, redeploy frontend |
 | Обзор не генерится | Groq ключ или `LLM_PROVIDER=none` |
-| Данные пропали | Подключи Volume на `/app/data` |
+| Данные пропали | Подключи Volume на `/app/data` или PostgreSQL |
+| User not found после регистрации | Volume + **1 replica**, или перейди на PostgreSQL |
+| Invalid email or password после регистрации | База сбросилась — зарегистрируйся заново, почини persistence |
 | Build frontend падает | `NEXT_PUBLIC_API_URL` должен быть задан до build |

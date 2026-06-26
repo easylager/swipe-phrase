@@ -1,4 +1,6 @@
-from pydantic import Field
+import os
+
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -32,6 +34,24 @@ class Settings(BaseSettings):
     jwt_secret: str = "dev-change-me-in-production"
     jwt_algorithm: str = "HS256"
     jwt_expire_days: int = 30
+
+    @field_validator("database_url", mode="before")
+    @classmethod
+    def normalize_database_url(cls, value: str) -> str:
+        """Railway Postgres uses postgres:// — convert for SQLAlchemy async."""
+        if value.startswith("postgres://"):
+            value = value.replace("postgres://", "postgresql://", 1)
+        if value.startswith("postgresql://"):
+            return value.replace("postgresql://", "postgresql+asyncpg://", 1)
+        # On Railway without explicit URL, store SQLite on the mounted volume.
+        if os.environ.get("RAILWAY_ENVIRONMENT") and value.startswith("sqlite"):
+            if "/data/" not in value and "///app/data" not in value:
+                return "sqlite+aiosqlite:////app/data/phrase_feed.db"
+        return value
+
+    @property
+    def is_postgres(self) -> bool:
+        return self.database_url.startswith("postgresql")
 
     @property
     def allowed_origins(self) -> list[str]:

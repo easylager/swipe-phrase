@@ -33,3 +33,21 @@ app.include_router(cards_router)
 @app.get("/health")
 async def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@app.get("/health/db")
+async def health_db() -> dict:
+    """Diagnostics for Railway — confirms DB is reachable and persistent."""
+    from sqlalchemy import func, select
+
+    from app.infrastructure.db.database import async_session_factory
+    from app.infrastructure.db.models import UserModel
+
+    async with async_session_factory() as session:
+        user_count = await session.scalar(select(func.count()).select_from(UserModel)) or 0
+
+    return {
+        "status": "ok",
+        "backend": "postgres" if settings.is_postgres else "sqlite",
+        "users": user_count,
+    }
