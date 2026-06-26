@@ -6,6 +6,7 @@ import { AuthScreen } from "@/components/AuthScreen";
 import { CardCreator } from "@/components/CardCreator";
 import { StatsButton, StatsModal } from "@/components/StatsModal";
 import { useAuth } from "@/contexts/AuthContext";
+import { useVisualKeyboard } from "@/hooks/useVisualKeyboard";
 
 const SwipeFeed = dynamic(
   () => import("@/components/SwipeFeed").then((m) => m.SwipeFeed),
@@ -26,6 +27,8 @@ export default function Home() {
   const [tab, setTab] = useState<Tab>("feed");
   const [feedKey, setFeedKey] = useState(0);
   const [showStats, setShowStats] = useState(false);
+  const keyboardOpen = useVisualKeyboard();
+  const hideNav = tab === "add" && keyboardOpen;
 
   if (isLoading) {
     return (
@@ -64,13 +67,14 @@ export default function Home() {
         {tab === "feed" ? (
           <SwipeFeed key={feedKey} />
         ) : (
-          <div className="h-full overflow-y-auto">
+          <div className="h-full overflow-y-auto overscroll-contain pb-safe">
             <CardCreator onCreated={() => setFeedKey((k) => k + 1)} />
           </div>
         )}
       </main>
 
-      <nav className="shrink-0 border-t border-white/5 px-4 py-3">
+      {!hideNav && (
+      <nav className="shrink-0 border-t border-white/5 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
         <div className="flex gap-2 rounded-2xl bg-white/5 p-1">
           <button
             type="button"
@@ -92,6 +96,7 @@ export default function Home() {
           </button>
         </div>
       </nav>
+      )}
     </div>
   );
 }

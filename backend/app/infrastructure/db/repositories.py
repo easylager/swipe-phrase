@@ -8,7 +8,7 @@ from app.domain.entities.card import Card, CardState, ReviewRating
 from app.domain.services.fsrs_scheduler import FSRSScheduler
 from app.domain.services.session_builder import SessionBuilder, SessionCandidate
 from app.infrastructure.config.settings import settings
-from app.infrastructure.db.models import CardModel, ReviewModel, ScheduleModel
+from app.infrastructure.db.models import CardModel, ReviewModel, ScheduleModel, UserDailyStatsModel
 
 
 def _ensure_utc(dt: datetime) -> datetime:
@@ -198,7 +198,47 @@ class CardRepository:
         return result.scalar_one()
 
     async def get_stats(self) -> dict:
-        return {"swipes_today": await self.count_swipes_today()}
+        return {
+            "swipes_today": await self.count_swipes_today(),
+            "best_combo_today": await self.get_best_combo_today(),
+        }
+
+    async def get_best_combo_today(self) -> int:
+        today = datetime.now(timezone.utc).date()
+        result = await self._session.execute(
+            select(UserDailyStatsModel.best_combo).where(
+                UserDailyStatsModel.user_id == self._user_id,
+                UserDailyStatsModel.day == today,
+            )
+        )
+        value = result.scalar_one_or_none()
+        return int(value or 0)
+
+    async def record_combo(self, combo_after: int) -> None:
+        """Persist today's best swipe combo if this streak beats the record."""
+        if combo_after <= 0:
+            return
+
+        today = datetime.now(timezone.utc).date()
+        result = await self._session.execute(
+            select(UserDailyStatsModel).where(
+                UserDailyStatsModel.user_id == self._user_id,
+                UserDailyStatsModel.day == today,
+            )
+        )
+        row = result.scalar_one_or_none()
+        if row:
+            if combo_after > row.best_combo:
+                row.best_combo = combo_after
+        else:
+            self._session.add(
+                UserDailyStatsModel(
+                    user_id=self._user_id,
+                    day=today,
+                    best_combo=combo_after,
+                )
+            )
+        await self._session.commit()
 
     async def get_swipes_by_day(self, days: int = 14) -> dict:
         """Swipe counts grouped by calendar day for the chart."""

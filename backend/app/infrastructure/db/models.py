@@ -1,6 +1,6 @@
-from datetime import datetime
+from datetime import date, datetime
 
-from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, Text, func
+from sqlalchemy import Date, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -17,6 +17,20 @@ class UserModel(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     cards: Mapped[list["CardModel"]] = relationship(back_populates="user")
+    daily_stats: Mapped[list["UserDailyStatsModel"]] = relationship(back_populates="user")
+
+
+class UserDailyStatsModel(Base):
+    """Per-user daily gamification stats (combo record, etc.)."""
+    __tablename__ = "user_daily_stats"
+    __table_args__ = (UniqueConstraint("user_id", "day", name="uq_user_daily_stats"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
+    day: Mapped[date] = mapped_column(Date, nullable=False)
+    best_combo: Mapped[int] = mapped_column(Integer, default=0)
+
+    user: Mapped["UserModel"] = relationship(back_populates="daily_stats")
 
 
 class CardModel(Base):

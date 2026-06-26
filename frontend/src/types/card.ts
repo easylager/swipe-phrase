@@ -17,6 +17,7 @@ export interface Card {
 
 export interface Stats {
   swipes_today: number;
+  best_combo_today?: number;
 }
 
 export interface DailySwipeStat {

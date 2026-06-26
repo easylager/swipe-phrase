@@ -42,6 +42,7 @@ class SubmitReviewRequest(BaseModel):
     rating: str = Field(..., pattern="^(again|good|graduated)$")
     flip_latency_ms: int | None = Field(None, ge=0)
     answer_latency_ms: int | None = Field(None, ge=0)
+    combo_after: int | None = Field(None, ge=0, le=9999)
 
 
 class RequestOverviewBody(BaseModel):
@@ -66,6 +67,7 @@ class CardResponse(BaseModel):
 
 class StatsResponse(BaseModel):
     swipes_today: int
+    best_combo_today: int = 0
 
 
 class DailySwipeStat(BaseModel):

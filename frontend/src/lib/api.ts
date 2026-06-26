@@ -97,6 +97,7 @@ export const api = {
     rating: ReviewRating,
     flipLatencyMs?: number,
     answerLatencyMs?: number,
+    comboAfter?: number,
   ) =>
     request<Card>(`/api/cards/${cardId}/review`, {
       method: "POST",
@@ -104,6 +105,7 @@ export const api = {
         rating,
         flip_latency_ms: flipLatencyMs ?? null,
         answer_latency_ms: answerLatencyMs ?? null,
+        combo_after: comboAfter ?? null,
       }),
     }),
   getCard: (cardId: number) => request<Card>(`/api/cards/${cardId}`),

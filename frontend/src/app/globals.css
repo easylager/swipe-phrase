@@ -19,6 +19,17 @@ body {
   overscroll-behavior: none;
 }
 
+/* Prevent iOS zoom-on-focus; keeps keyboard transition smooth */
+input,
+textarea,
+select {
+  font-size: 16px;
+}
+
+.pb-safe {
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
+}
+
 .perspective-\[1200px\] {
   perspective: 1200px;
 }

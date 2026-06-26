@@ -183,6 +183,7 @@ async def regenerate_overview(
 async def submit_review(
     card_id: int,
     body: SubmitReviewRequest,
+    user: UserModel = Depends(get_current_user),
     repo: CardRepository = Depends(_repo),
 ) -> CardResponse:
     try:
@@ -198,6 +199,9 @@ async def submit_review(
     )
     if not card:
         raise HTTPException(status_code=404, detail="Card not found")
+
+    if body.combo_after and rating in (ReviewRating.GOOD, ReviewRating.GRADUATED):
+        await repo.record_combo(body.combo_after)
 
     return _to_response(card)
 
