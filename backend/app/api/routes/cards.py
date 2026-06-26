@@ -1,5 +1,4 @@
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.schemas import (
     CardResponse,
@@ -10,10 +9,10 @@ from app.api.schemas import (
     SubmitReviewRequest,
     UpdateCardRequest,
 )
+from app.api.deps import get_card_repo
 from app.application.use_cases.generate_overview import generate_overview_for_card
 from app.domain.entities.card import ReviewRating
 from app.infrastructure.config.settings import settings
-from app.infrastructure.db.database import get_session
 from app.infrastructure.db.models import CardModel
 from app.infrastructure.db.repositories import CardRepository
 from app.infrastructure.llm.factory import get_overview_generator
@@ -21,8 +20,8 @@ from app.infrastructure.llm.factory import get_overview_generator
 router = APIRouter(prefix="/api", tags=["cards"])
 
 
-def _repo(session: AsyncSession = Depends(get_session)) -> CardRepository:
-    return CardRepository(session)
+def _repo(repo: CardRepository = Depends(get_card_repo)) -> CardRepository:
+    return repo
 
 
 def _to_response(

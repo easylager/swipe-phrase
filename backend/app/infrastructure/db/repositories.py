@@ -18,8 +18,9 @@ def _ensure_utc(dt: datetime) -> datetime:
 
 
 class CardRepository:
-    def __init__(self, session: AsyncSession) -> None:
+    def __init__(self, session: AsyncSession, user_id: int) -> None:
         self._session = session
+        self._user_id = user_id
         self._scheduler = FSRSScheduler()
 
     async def create(
@@ -30,6 +31,7 @@ class CardRepository:
         cluster: str | None = None,
     ) -> CardModel:
         card = CardModel(
+            user_id=self._user_id,
             english=english.strip(),
             translation=translation.strip(),
             context=context.strip() if context else None,
@@ -53,7 +55,7 @@ class CardRepository:
         result = await self._session.execute(
             select(CardModel)
             .options(selectinload(CardModel.schedule))
-            .where(CardModel.id == card_id)
+            .where(CardModel.id == card_id, CardModel.user_id == self._user_id)
         )
         return result.scalar_one_or_none()
 
@@ -61,6 +63,7 @@ class CardRepository:
         result = await self._session.execute(
             select(CardModel)
             .options(selectinload(CardModel.schedule))
+            .where(CardModel.user_id == self._user_id)
             .order_by(CardModel.created_at.desc())
         )
         return list(result.scalars().all())
@@ -68,7 +71,10 @@ class CardRepository:
     async def count_new_today(self) -> int:
         today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
         result = await self._session.execute(
-            select(func.count(CardModel.id)).where(CardModel.created_at >= today_start)
+            select(func.count(CardModel.id)).where(
+                CardModel.user_id == self._user_id,
+                CardModel.created_at >= today_start,
+            )
         )
         return result.scalar_one()
 
@@ -182,7 +188,12 @@ class CardRepository:
         """Each review = one card passed (swipe or button)."""
         today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
         result = await self._session.execute(
-            select(func.count(ReviewModel.id)).where(ReviewModel.reviewed_at >= today_start)
+            select(func.count(ReviewModel.id))
+            .join(CardModel, ReviewModel.card_id == CardModel.id)
+            .where(
+                CardModel.user_id == self._user_id,
+                ReviewModel.reviewed_at >= today_start,
+            )
         )
         return result.scalar_one()
 
@@ -200,7 +211,11 @@ class CardRepository:
                 func.date(ReviewModel.reviewed_at).label("day"),
                 func.count(ReviewModel.id).label("count"),
             )
-            .where(ReviewModel.reviewed_at >= start)
+            .join(CardModel, ReviewModel.card_id == CardModel.id)
+            .where(
+                CardModel.user_id == self._user_id,
+                ReviewModel.reviewed_at >= start,
+            )
             .group_by(func.date(ReviewModel.reviewed_at))
             .order_by(func.date(ReviewModel.reviewed_at))
         )

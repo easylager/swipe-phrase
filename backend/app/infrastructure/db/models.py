@@ -8,10 +8,22 @@ class Base(DeclarativeBase):
     pass
 
 
+class UserModel(Base):
+    __tablename__ = "users"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    email: Mapped[str] = mapped_column(String(320), unique=True, nullable=False, index=True)
+    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    cards: Mapped[list["CardModel"]] = relationship(back_populates="user")
+
+
 class CardModel(Base):
     __tablename__ = "cards"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
     english: Mapped[str] = mapped_column(String(500), nullable=False)
     translation: Mapped[str] = mapped_column(String(500), nullable=False)
     context: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -22,6 +34,7 @@ class CardModel(Base):
 
     schedule: Mapped["ScheduleModel | None"] = relationship(back_populates="card", uselist=False)
     reviews: Mapped[list["ReviewModel"]] = relationship(back_populates="card")
+    user: Mapped["UserModel"] = relationship(back_populates="cards")
 
 
 class ScheduleModel(Base):

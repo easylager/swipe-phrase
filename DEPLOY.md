@@ -46,6 +46,7 @@ DATABASE_URL=sqlite+aiosqlite:///./data/phrase_feed.db
 LLM_PROVIDER=groq
 GROQ_API_KEY=gsk_...
 FRONTEND_URL=https://YOUR-FRONTEND.up.railway.app
+JWT_SECRET=your-random-secret-at-least-32-chars
 ```
 
 **Volume (обязательно для SQLite):**

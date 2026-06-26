@@ -20,6 +20,13 @@ async def _run_migrations(conn) -> None:
     if "overview_status" not in columns:
         await conn.execute(text("ALTER TABLE cards ADD COLUMN overview_status VARCHAR(20) DEFAULT 'pending'"))
 
+    # Multi-user migration — legacy single-tenant cards are dropped (no owner).
+    if "user_id" not in columns:
+        await conn.execute(text("ALTER TABLE cards ADD COLUMN user_id INTEGER REFERENCES users(id)"))
+        await conn.execute(text("DELETE FROM reviews"))
+        await conn.execute(text("DELETE FROM schedules"))
+        await conn.execute(text("DELETE FROM cards"))
+
 
 async def init_db() -> None:
     async with engine.begin() as conn:

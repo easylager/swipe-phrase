@@ -29,6 +29,10 @@ class Settings(BaseSettings):
     groq_api_key: str = ""
     groq_model: str = "llama-3.1-8b-instant"
 
+    jwt_secret: str = "dev-change-me-in-production"
+    jwt_algorithm: str = "HS256"
+    jwt_expire_days: int = 30
+
     @property
     def allowed_origins(self) -> list[str]:
         origins = list(self.cors_origins)
