@@ -6,6 +6,7 @@ import type { Card } from "@/types/card";
 import { api } from "@/lib/api";
 import { useSpeech } from "@/hooks/useSpeech";
 import { OverviewButton, OverviewSheet } from "@/components/OverviewSheet";
+import { RoastButton, RoastSheet } from "@/components/RoastSheet";
 import { CardEditSheet } from "@/components/CardEditSheet";
 import { getCardFaces } from "@/lib/cardPrompt";
 import { contextTextClass, phraseTextClass } from "@/lib/phraseTypography";
@@ -16,6 +17,8 @@ interface FlashCardProps {
   onReview?: (rating: "again" | "graduated") => void;
   onRequestOverview?: () => Promise<void>;
   onRegenerateOverview?: () => void;
+  onRequestRoast?: () => Promise<void>;
+  onRegenerateRoast?: () => void;
   onCardUpdate?: (card: Card) => void;
   onEdit?: (payload: {
     english: string;
@@ -65,6 +68,8 @@ export function FlashCard({
   onReview,
   onRequestOverview,
   onRegenerateOverview,
+  onRequestRoast,
+  onRegenerateRoast,
   onCardUpdate,
   onEdit,
   disabled,
@@ -72,6 +77,7 @@ export function FlashCard({
 }: FlashCardProps) {
   const { speak } = useSpeech();
   const [showOverview, setShowOverview] = useState(false);
+  const [showRoast, setShowRoast] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
 
   const faces = getCardFaces(card);
@@ -85,9 +91,18 @@ export function FlashCard({
     await onRequestOverview?.();
   };
 
-  // Poll only while the overview sheet is open and LLM is working.
+  const handleOpenRoast = async () => {
+    setShowRoast(true);
+    if (card.roast_status === "ready" && card.roast) return;
+    if (card.roast_status === "generating") return;
+    await onRequestRoast?.();
+  };
+
+  // Poll only while a sheet is open and LLM is working.
   useEffect(() => {
-    if (!showOverview || card.overview_status !== "generating" || !onCardUpdate) return;
+    const pollingOverview = showOverview && card.overview_status === "generating";
+    const pollingRoast = showRoast && card.roast_status === "generating";
+    if ((!pollingOverview && !pollingRoast) || !onCardUpdate) return;
 
     const timer = setInterval(async () => {
       try {
@@ -99,7 +114,14 @@ export function FlashCard({
     }, 2000);
 
     return () => clearInterval(timer);
-  }, [showOverview, card.overview_status, card.id, onCardUpdate]);
+  }, [
+    showOverview,
+    showRoast,
+    card.overview_status,
+    card.roast_status,
+    card.id,
+    onCardUpdate,
+  ]);
 
   return (
     <div className="pointer-events-none relative flex h-full w-full flex-col overflow-hidden rounded-3xl border border-white/10 bg-zinc-900 shadow-2xl shadow-black/40 perspective-[1200px]">
@@ -111,6 +133,19 @@ export function FlashCard({
             status={card.overview_status}
             onClose={() => setShowOverview(false)}
             onRegenerate={onRegenerateOverview}
+          />
+        </div>
+      )}
+
+      {!preview && showRoast && (
+        <div className="pointer-events-auto absolute inset-0 z-40">
+          <RoastSheet
+            english={card.english}
+            translation={card.translation}
+            roast={card.roast ?? ""}
+            status={card.roast_status}
+            onClose={() => setShowRoast(false)}
+            onRegenerate={onRegenerateRoast}
           />
         </div>
       )}
@@ -188,7 +223,8 @@ export function FlashCard({
           className="pointer-events-auto relative z-30 shrink-0 border-t border-white/10 bg-zinc-950/95 px-4 py-3 backdrop-blur-md"
         >
           <div className="flex flex-col items-center gap-3">
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              <RoastButton status={card.roast_status} onClick={() => void handleOpenRoast()} />
               <OverviewButton
                 status={card.overview_status}
                 onClick={() => void handleOpenOverview()}

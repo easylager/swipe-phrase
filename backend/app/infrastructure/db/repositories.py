@@ -37,6 +37,7 @@ class CardRepository:
             context=context.strip() if context else None,
             cluster=cluster.strip() if cluster else None,
             overview_status="idle" if settings.llm_provider.lower() != "none" else "skipped",
+            roast_status="idle" if settings.llm_provider.lower() != "none" else "skipped",
         )
         self._session.add(card)
         await self._session.flush()
@@ -100,6 +101,8 @@ class CardRepository:
                     bucket="",
                     overview=card.overview,
                     overview_status=card.overview_status or "skipped",
+                    roast=card.roast,
+                    roast_status=card.roast_status or "skipped",
                 )
             )
         return candidates
@@ -261,6 +264,21 @@ class CardRepository:
         card.overview_status = status
         await self._session.commit()
 
+    async def set_roast_status(self, card_id: int, status: str) -> None:
+        card = await self.get_by_id(card_id)
+        if not card:
+            return
+        card.roast_status = status
+        await self._session.commit()
+
+    async def save_roast(self, card_id: int, roast: str) -> None:
+        card = await self.get_by_id(card_id)
+        if not card:
+            return
+        card.roast = roast
+        card.roast_status = "ready"
+        await self._session.commit()
+
     async def update(
         self,
         card_id: int,
@@ -286,6 +304,8 @@ class CardRepository:
         if english_changed and settings.llm_provider.lower() != "none":
             card.overview = None
             card.overview_status = "idle"
+            card.roast = None
+            card.roast_status = "idle"
 
         await self._session.commit()
         updated = await self.get_by_id(card_id)

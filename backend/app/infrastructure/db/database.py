@@ -19,6 +19,10 @@ async def _run_migrations(conn) -> None:
         await conn.execute(text("ALTER TABLE cards ADD COLUMN overview TEXT"))
     if "overview_status" not in columns:
         await conn.execute(text("ALTER TABLE cards ADD COLUMN overview_status VARCHAR(20) DEFAULT 'pending'"))
+    if "roast" not in columns:
+        await conn.execute(text("ALTER TABLE cards ADD COLUMN roast TEXT"))
+    if "roast_status" not in columns:
+        await conn.execute(text("ALTER TABLE cards ADD COLUMN roast_status VARCHAR(20) DEFAULT 'idle'"))
 
     # Multi-user migration — legacy single-tenant cards are dropped (no owner).
     if "user_id" not in columns:
