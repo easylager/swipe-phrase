@@ -26,8 +26,6 @@ class SessionCandidate:
     bucket: str
     overview: str | None = None
     overview_status: str = "idle"
-    roast: str | None = None
-    roast_status: str = "idle"
 
 
 class SessionBuilder:

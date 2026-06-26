@@ -174,26 +174,6 @@ export function SwipeFeed() {
     }
   };
 
-  const handleRequestRoast = async () => {
-    if (!currentCard) return;
-    try {
-      const updated = await api.requestRoast(currentCard.id);
-      updateCardInFeed(updated);
-    } catch {
-      /* handled in sheet */
-    }
-  };
-
-  const handleRegenerateRoast = async () => {
-    if (!currentCard) return;
-    try {
-      const updated = await api.regenerateRoast(currentCard.id);
-      updateCardInFeed(updated);
-    } catch {
-      /* handled in sheet */
-    }
-  };
-
   const handleEditCard = async (payload: {
     english: string;
     translation: string;
@@ -217,8 +197,6 @@ export function SwipeFeed() {
         onReview={preview ? undefined : submitAndAdvance}
         onRequestOverview={preview ? undefined : handleRequestOverview}
         onRegenerateOverview={preview ? undefined : handleRegenerateOverview}
-        onRequestRoast={preview ? undefined : handleRequestRoast}
-        onRegenerateRoast={preview ? undefined : handleRegenerateRoast}
         onCardUpdate={preview ? undefined : updateCardInFeed}
         onEdit={preview ? undefined : handleEditCard}
         disabled={busy}

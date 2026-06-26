@@ -73,9 +73,20 @@ export function OverviewSheet({
             )}
           </div>
         ) : (
-          <div className="mt-4 whitespace-pre-wrap text-sm leading-relaxed text-zinc-300">
-            {formatOverview(overview)}
-          </div>
+          <>
+            <div className="mt-4 whitespace-pre-wrap text-sm leading-relaxed text-zinc-300">
+              {formatOverview(overview)}
+            </div>
+            {onRegenerate && (
+              <button
+                type="button"
+                onClick={onRegenerate}
+                className="mt-5 w-full rounded-xl bg-white/5 py-2.5 text-sm text-zinc-400 transition hover:bg-white/10 hover:text-white"
+              >
+                Обновить обзор
+              </button>
+            )}
+          </>
         )}
       </div>
     </div>

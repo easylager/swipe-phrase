@@ -114,11 +114,4 @@ export const api = {
     }),
   regenerateOverview: (cardId: number) =>
     request<Card>(`/api/cards/${cardId}/overview/regenerate`, { method: "POST" }),
-  requestRoast: (cardId: number, force = false) =>
-    request<Card>(`/api/cards/${cardId}/roast`, {
-      method: "POST",
-      body: JSON.stringify({ force }),
-    }),
-  regenerateRoast: (cardId: number) =>
-    request<Card>(`/api/cards/${cardId}/roast/regenerate`, { method: "POST" }),
 };

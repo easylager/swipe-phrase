@@ -5,13 +5,12 @@ from app.api.schemas import (
     CreateCardRequest,
     DailyStatsResponse,
     RequestOverviewBody,
-    RequestRoastBody,
     StatsResponse,
     SubmitReviewRequest,
     UpdateCardRequest,
 )
 from app.api.deps import get_card_repo, get_current_user
-from app.application.use_cases.generate_overview import generate_overview_for_card, generate_roast_for_card
+from app.application.use_cases.generate_overview import generate_overview_for_card
 from app.domain.entities.card import ReviewRating
 from app.infrastructure.config.settings import settings
 from app.infrastructure.db.models import CardModel, UserModel
@@ -41,8 +40,6 @@ def _to_response(
         cluster=card.cluster,
         overview=card.overview,
         overview_status=card.overview_status or "skipped",
-        roast=card.roast,
-        roast_status=card.roast_status or "skipped",
         state=state or (schedule.state if schedule else "new"),
         due=due or (schedule.due.isoformat() if schedule else ""),
         bucket=bucket,
@@ -58,8 +55,6 @@ def _candidate_to_response(candidate) -> CardResponse:
         cluster=candidate.cluster,
         overview=candidate.overview,
         overview_status=candidate.overview_status,
-        roast=candidate.roast,
-        roast_status=candidate.roast_status,
         state=candidate.state.value,
         due=candidate.due.isoformat(),
         bucket=candidate.bucket,
@@ -69,11 +64,6 @@ def _candidate_to_response(candidate) -> CardResponse:
 def _enqueue_overview(background_tasks: BackgroundTasks, card_id: int, user_id: int) -> None:
     if get_overview_generator():
         background_tasks.add_task(generate_overview_for_card, card_id, user_id)
-
-
-def _enqueue_roast(background_tasks: BackgroundTasks, card_id: int, user_id: int) -> None:
-    if get_overview_generator():
-        background_tasks.add_task(generate_roast_for_card, card_id, user_id)
 
 
 def _needs_llm_generation(status: str, content: str | None, *, force: bool) -> bool:
@@ -170,49 +160,6 @@ async def request_overview(
 
     card = await repo.get_by_id(card_id)
     return _to_response(card)  # type: ignore[arg-type]
-
-
-@router.post("/cards/{card_id}/roast", response_model=CardResponse)
-async def request_roast(
-    card_id: int,
-    body: RequestRoastBody,
-    background_tasks: BackgroundTasks,
-    user: UserModel = Depends(get_current_user),
-    repo: CardRepository = Depends(_repo),
-) -> CardResponse:
-    """Generate roast on demand — cached result is returned without calling LLM."""
-    if not get_overview_generator():
-        raise HTTPException(status_code=503, detail="LLM roast is disabled")
-
-    card = await repo.get_by_id(card_id)
-    if not card:
-        raise HTTPException(status_code=404, detail="Card not found")
-
-    if _needs_llm_generation(card.roast_status, card.roast, force=body.force):
-        if body.force:
-            card.roast = None
-        await repo.set_roast_status(card_id, "generating")
-        _enqueue_roast(background_tasks, card_id, user.id)
-
-    card = await repo.get_by_id(card_id)
-    return _to_response(card)  # type: ignore[arg-type]
-
-
-@router.post("/cards/{card_id}/roast/regenerate", response_model=CardResponse)
-async def regenerate_roast(
-    card_id: int,
-    background_tasks: BackgroundTasks,
-    user: UserModel = Depends(get_current_user),
-    repo: CardRepository = Depends(_repo),
-) -> CardResponse:
-    """Force a fresh roast (retry after failure or new joke)."""
-    return await request_roast(
-        card_id,
-        RequestRoastBody(force=True),
-        background_tasks,
-        user,
-        repo,
-    )
 
 
 @router.post("/cards/{card_id}/overview/regenerate", response_model=CardResponse)

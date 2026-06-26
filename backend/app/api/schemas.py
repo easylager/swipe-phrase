@@ -49,11 +49,6 @@ class RequestOverviewBody(BaseModel):
     force: bool = False
 
 
-class RequestRoastBody(BaseModel):
-    """force=true re-generates even when a cached roast exists."""
-    force: bool = False
-
-
 class CardResponse(BaseModel):
     id: int
     english: str
@@ -62,8 +57,6 @@ class CardResponse(BaseModel):
     cluster: str | None
     overview: str | None = None
     overview_status: str = "skipped"
-    roast: str | None = None
-    roast_status: str = "skipped"
     state: str
     due: str
     bucket: str | None = None

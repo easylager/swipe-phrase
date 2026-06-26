@@ -8,8 +8,6 @@ export interface Card {
   cluster: string | null;
   overview: string | null;
   overview_status: "idle" | "generating" | "ready" | "failed" | "skipped" | "pending";
-  roast: string | null;
-  roast_status: "idle" | "generating" | "ready" | "failed" | "skipped" | "pending";
   state: string;
   due: string;
   bucket?: string | null;

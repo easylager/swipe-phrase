@@ -30,8 +30,6 @@ class CardModel(Base):
     cluster: Mapped[str | None] = mapped_column(String(100), nullable=True)
     overview: Mapped[str | None] = mapped_column(Text, nullable=True)
     overview_status: Mapped[str] = mapped_column(String(20), default="pending")
-    roast: Mapped[str | None] = mapped_column(Text, nullable=True)
-    roast_status: Mapped[str] = mapped_column(String(20), default="idle")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     schedule: Mapped["ScheduleModel | None"] = relationship(back_populates="card", uselist=False)
