@@ -33,8 +33,25 @@ if not settings.is_postgres:
         cursor.close()
 
 
+async def _drop_legacy_roast_columns(conn) -> None:
+    """Roast feature was removed — drop orphan columns from older deploys."""
+    if settings.is_postgres:
+        await conn.execute(text("ALTER TABLE cards DROP COLUMN IF EXISTS roast"))
+        await conn.execute(text("ALTER TABLE cards DROP COLUMN IF EXISTS roast_status"))
+        return
+
+    result = await conn.execute(text("PRAGMA table_info(cards)"))
+    columns = {row[1] for row in result.fetchall()}
+    if "roast" in columns:
+        await conn.execute(text("ALTER TABLE cards DROP COLUMN roast"))
+    if "roast_status" in columns:
+        await conn.execute(text("ALTER TABLE cards DROP COLUMN roast_status"))
+
+
 async def _run_migrations(conn) -> None:
-    """Add new columns to existing SQLite databases."""
+    """Schema patches for existing databases (SQLite + Postgres)."""
+    await _drop_legacy_roast_columns(conn)
+
     if settings.is_postgres:
         return
 
@@ -45,7 +62,6 @@ async def _run_migrations(conn) -> None:
     if "overview_status" not in columns:
         await conn.execute(text("ALTER TABLE cards ADD COLUMN overview_status VARCHAR(20) DEFAULT 'pending'"))
 
-    # Multi-user migration — legacy single-tenant cards are dropped (no owner).
     if "user_id" not in columns:
         await conn.execute(text("ALTER TABLE cards ADD COLUMN user_id INTEGER REFERENCES users(id)"))
         await conn.execute(text("DELETE FROM reviews"))
