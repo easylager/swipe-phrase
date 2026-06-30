@@ -45,3 +45,5 @@ export interface UpdateCardPayload {
 }
 
 export type ReviewRating = "again" | "good" | "graduated";
+
+export type SnoozeDays = 2 | 4 | 7;

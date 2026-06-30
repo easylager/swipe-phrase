@@ -1,5 +1,8 @@
 "use client";
 
+import { useState } from "react";
+import { api } from "@/lib/api";
+import { parseOverview } from "@/lib/parseOverview";
 import type { Card } from "@/types/card";
 
 interface OverviewSheetProps {
@@ -10,14 +13,128 @@ interface OverviewSheetProps {
   onRegenerate?: () => void;
 }
 
-/** Normalize overview text — strip markdown, keep readable plain text. */
-function formatOverview(text: string): string {
-  return text
-    .replace(/\*\*(.+?)\*\*/g, "$1")
-    .replace(/^\* /gm, "— ")
-    .replace(/^\t\* /gm, "— ")
-    .replace(/^#+\s*/gm, "")
-    .trim();
+function SectionTitle({ children }: { children: string }) {
+  return (
+    <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-violet-400/90">
+      {children}
+    </h3>
+  );
+}
+
+function TextSection({ title, body }: { title: string; body: string }) {
+  const isTranscription = title === "ТРАНСКРИПЦИЯ";
+
+  return (
+    <section>
+      <SectionTitle>{title}</SectionTitle>
+      <div
+        className={`text-sm leading-relaxed text-zinc-300 ${
+          isTranscription ? "font-mono text-[15px] text-amber-200/90" : ""
+        }`}
+      >
+        {body.split("\n").map((line, i) => (
+          <p key={i} className={i > 0 ? "mt-1 text-zinc-400" : ""}>
+            {line}
+          </p>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function ListSection({ title, items }: { title: string; items: string[] }) {
+  return (
+    <section>
+      <SectionTitle>{title}</SectionTitle>
+      <ul className="space-y-2.5">
+        {items.map((item, i) => (
+          <li key={i} className="flex gap-2.5 text-sm leading-relaxed text-zinc-300">
+            <span className="mt-0.5 shrink-0 text-violet-400/70">—</span>
+            <span>{item}</span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function SuggestionsSection({
+  items,
+  onAdded,
+}: {
+  items: { english: string; translation: string }[];
+  onAdded?: () => void;
+}) {
+  const [adding, setAdding] = useState<string | null>(null);
+  const [added, setAdded] = useState<Set<string>>(new Set());
+
+  const handleAdd = async (english: string, translation: string) => {
+    if (adding || added.has(english)) return;
+    setAdding(english);
+    try {
+      await api.createCard({ english, translation });
+      setAdded((prev) => new Set(prev).add(english));
+      onAdded?.();
+    } catch {
+      /* ignore */
+    } finally {
+      setAdding(null);
+    }
+  };
+
+  return (
+    <section className="rounded-2xl border border-violet-500/20 bg-violet-500/5 p-4">
+      <SectionTitle>Похожее в ленту</SectionTitle>
+      <ul className="space-y-2">
+        {items.map((item) => {
+          const isAdded = added.has(item.english);
+          const isLoading = adding === item.english;
+
+          return (
+            <li
+              key={item.english}
+              className="flex items-start justify-between gap-3 rounded-xl bg-black/20 px-3 py-2.5"
+            >
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-white">{item.english}</p>
+                <p className="mt-0.5 text-xs text-zinc-500">{item.translation}</p>
+              </div>
+              <button
+                type="button"
+                disabled={isAdded || isLoading}
+                onClick={() => void handleAdd(item.english, item.translation)}
+                className={`shrink-0 rounded-lg px-2.5 py-1.5 text-xs font-medium transition ${
+                  isAdded
+                    ? "bg-emerald-500/15 text-emerald-400"
+                    : "bg-violet-600/80 text-white hover:bg-violet-500 disabled:opacity-60"
+                }`}
+              >
+                {isAdded ? "✓" : isLoading ? "…" : "+ лента"}
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}
+
+function OverviewContent({ overview }: { overview: string }) {
+  const { sections } = parseOverview(overview);
+
+  return (
+    <div className="space-y-5">
+      {sections.map((section) => {
+        if (section.kind === "text") {
+          return <TextSection key={section.title} title={section.title} body={section.body} />;
+        }
+        if (section.kind === "list") {
+          return <ListSection key={section.title} title={section.title} items={section.items} />;
+        }
+        return <SuggestionsSection key={section.title} items={section.items} />;
+      })}
+    </div>
+  );
 }
 
 export function OverviewSheet({
@@ -34,10 +151,10 @@ export function OverviewSheet({
       onClick={onClose}
     >
       <div
-        className="max-h-[70%] w-full overflow-y-auto rounded-t-3xl border border-white/10 bg-zinc-900 p-6 shadow-2xl"
+        className="max-h-[78%] w-full overflow-y-auto rounded-t-3xl border border-white/10 bg-zinc-900 p-6 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="mb-1 flex items-start justify-between gap-3">
+        <div className="mb-4 flex items-start justify-between gap-3">
           <div>
             <p className="text-xs font-medium uppercase tracking-wider text-violet-400">Обзор</p>
             <p className="mt-1 text-lg font-semibold text-white">{english}</p>
@@ -74,14 +191,12 @@ export function OverviewSheet({
           </div>
         ) : (
           <>
-            <div className="mt-4 whitespace-pre-wrap text-sm leading-relaxed text-zinc-300">
-              {formatOverview(overview)}
-            </div>
+            <OverviewContent overview={overview} />
             {onRegenerate && (
               <button
                 type="button"
                 onClick={onRegenerate}
-                className="mt-5 w-full rounded-xl bg-white/5 py-2.5 text-sm text-zinc-400 transition hover:bg-white/10 hover:text-white"
+                className="mt-6 w-full rounded-xl bg-white/5 py-2.5 text-sm text-zinc-500 transition hover:bg-white/10 hover:text-zinc-300"
               >
                 Обновить обзор
               </button>

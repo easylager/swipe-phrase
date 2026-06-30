@@ -6,7 +6,9 @@ import type { Card } from "@/types/card";
 import { api } from "@/lib/api";
 import { useSpeech } from "@/hooks/useSpeech";
 import { OverviewButton, OverviewSheet } from "@/components/OverviewSheet";
+import { SnoozeSheet } from "@/components/SnoozeSheet";
 import { CardEditSheet } from "@/components/CardEditSheet";
+import type { SnoozeDays } from "@/types/card";
 import { getCardFaces } from "@/lib/cardPrompt";
 import { contextTextClass, phraseTextClass } from "@/lib/phraseTypography";
 
@@ -16,6 +18,7 @@ interface FlashCardProps {
   onReview?: (rating: "again" | "graduated") => void;
   onRequestOverview?: () => Promise<void>;
   onRegenerateOverview?: () => void;
+  onSnooze?: (days: SnoozeDays) => void;
   onCardUpdate?: (card: Card) => void;
   onEdit?: (payload: {
     english: string;
@@ -65,6 +68,7 @@ export function FlashCard({
   onReview,
   onRequestOverview,
   onRegenerateOverview,
+  onSnooze,
   onCardUpdate,
   onEdit,
   disabled,
@@ -72,6 +76,7 @@ export function FlashCard({
 }: FlashCardProps) {
   const { speak } = useSpeech();
   const [showOverview, setShowOverview] = useState(false);
+  const [showSnooze, setShowSnooze] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
 
   const faces = getCardFaces(card);
@@ -102,6 +107,19 @@ export function FlashCard({
 
   return (
     <div className="pointer-events-none relative flex h-full w-full flex-col overflow-hidden rounded-3xl border border-white/10 bg-zinc-900 shadow-2xl shadow-black/40 perspective-[1200px]">
+      {!preview && showSnooze && onSnooze && (
+        <div className="pointer-events-auto absolute inset-0 z-40">
+          <SnoozeSheet
+            english={card.english}
+            onClose={() => setShowSnooze(false)}
+            onSelect={(days) => {
+              setShowSnooze(false);
+              onSnooze(days);
+            }}
+          />
+        </div>
+      )}
+
       {!preview && showOverview && (
         <div className="pointer-events-auto absolute inset-0 z-40">
           <OverviewSheet
@@ -190,6 +208,17 @@ export function FlashCard({
                 status={card.overview_status}
                 onClick={() => void handleOpenOverview()}
               />
+              {onSnooze && (
+                <button
+                  type="button"
+                  onClick={() => setShowSnooze(true)}
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-sky-500/10 text-base transition hover:bg-sky-500/20"
+                  aria-label="Отложить"
+                  title="Отложить"
+                >
+                  ⏸
+                </button>
+              )}
               {onEdit && (
                 <button
                   type="button"

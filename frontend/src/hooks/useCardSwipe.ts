@@ -1,6 +1,8 @@
 import { animate, useMotionValue, useTransform } from "framer-motion";
 import { useCallback, useEffect, useRef } from "react";
 
+const SWIPE_EXIT_MS = 0.34;
+const SWIPE_EXIT_EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
 const DRAG_START_PX = 8;
 const SWIPE_OFFSET_PX = 40;
 const SWIPE_VELOCITY = 0.22; // px/ms upward
@@ -21,8 +23,8 @@ interface UseCardSwipeOptions {
 /** Full-surface swipe with window-level tracking — works from any point on the card. */
 export function useCardSwipe({ onSwipeUp, onTap, disabled }: UseCardSwipeOptions) {
   const y = useMotionValue(0);
-  const scale = useTransform(y, [-320, 0], [0.92, 1]);
-  const opacity = useTransform(y, [-320, 0], [0.5, 1]);
+  const scale = useTransform(y, [-360, 0], [0.9, 1]);
+  const opacity = useTransform(y, [-360, 0], [0.35, 1]);
 
   const startRef = useRef<{ y: number; x: number; t: number; pointerId: number } | null>(null);
   const draggingRef = useRef(false);
@@ -74,12 +76,12 @@ export function useCardSwipe({ onSwipeUp, onTap, disabled }: UseCardSwipeOptions
         if (shouldSwipe) {
           lockedRef.current = true;
           await animate(y, -window.innerHeight, {
-            duration: 0.24,
-            ease: [0.32, 0.72, 0, 1],
+            duration: SWIPE_EXIT_MS,
+            ease: SWIPE_EXIT_EASE,
           });
-          y.set(0);
           lockedRef.current = false;
           onSwipeUpRef.current();
+          y.set(0);
         } else {
           animate(y, 0, { type: "spring", stiffness: 480, damping: 36 });
         }

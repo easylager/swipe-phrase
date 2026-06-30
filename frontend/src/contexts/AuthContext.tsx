@@ -11,6 +11,8 @@ import {
 } from "react";
 import { api } from "@/lib/api";
 import { clearToken, getToken, setToken } from "@/lib/auth";
+import { clearOfflineData, getCachedUser, setCachedUser } from "@/lib/offlineStore";
+import { isNetworkError } from "@/lib/network";
 import type { User } from "@/types/user";
 
 interface AuthContextValue {
@@ -37,10 +39,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     try {
       const me = await api.me();
+      setCachedUser(me);
       setUser(me);
-    } catch {
-      clearToken();
-      setUser(null);
+    } catch (err) {
+      const cached = getCachedUser();
+      if (cached && isNetworkError(err)) {
+        setUser(cached);
+      } else {
+        clearToken();
+        setUser(null);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -60,6 +68,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const res = await api.login(email, password);
     setToken(res.access_token);
     const me = await api.me();
+    setCachedUser(me);
     setUser(me);
   }, []);
 
@@ -67,11 +76,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const res = await api.register(email, password);
     setToken(res.access_token);
     const me = await api.me();
+    setCachedUser(me);
     setUser(me);
   }, []);
 
   const logout = useCallback(() => {
     clearToken();
+    clearOfflineData();
     setUser(null);
   }, []);
 

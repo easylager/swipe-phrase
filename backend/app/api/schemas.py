@@ -50,6 +50,10 @@ class RequestOverviewBody(BaseModel):
     force: bool = False
 
 
+class SnoozeCardRequest(BaseModel):
+    days: int = Field(..., ge=2, le=30)
+
+
 class CardResponse(BaseModel):
     id: int
     english: str

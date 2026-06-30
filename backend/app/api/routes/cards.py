@@ -5,6 +5,7 @@ from app.api.schemas import (
     CreateCardRequest,
     DailyStatsResponse,
     RequestOverviewBody,
+    SnoozeCardRequest,
     StatsResponse,
     SubmitReviewRequest,
     UpdateCardRequest,
@@ -203,6 +204,18 @@ async def submit_review(
     if body.combo_after and rating in (ReviewRating.GOOD, ReviewRating.GRADUATED):
         await repo.record_combo(body.combo_after)
 
+    return _to_response(card)
+
+
+@router.post("/cards/{card_id}/snooze", response_model=CardResponse)
+async def snooze_card(
+    card_id: int,
+    body: SnoozeCardRequest,
+    repo: CardRepository = Depends(_repo),
+) -> CardResponse:
+    card = await repo.snooze_card(card_id, body.days)
+    if not card:
+        raise HTTPException(status_code=404, detail="Card not found")
     return _to_response(card)
 
 

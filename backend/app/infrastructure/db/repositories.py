@@ -175,6 +175,17 @@ class CardRepository:
         await self._session.commit()
         return await self.get_by_id(card_id)
 
+    async def snooze_card(self, card_id: int, days: int) -> CardModel | None:
+        """Push next review date forward without counting as a review."""
+        card = await self.get_by_id(card_id)
+        if not card or not card.schedule:
+            return None
+
+        now = datetime.now(timezone.utc)
+        card.schedule.due = now + timedelta(days=days)
+        await self._session.commit()
+        return await self.get_by_id(card_id)
+
     async def build_session(self) -> list[SessionCandidate]:
         candidates = await self.get_session_candidates()
         new_today = await self.count_new_today()

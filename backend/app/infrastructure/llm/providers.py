@@ -21,7 +21,7 @@ class OllamaOverviewGenerator(OverviewGenerator):
                 {"role": "user", "content": build_overview_prompt(english, translation, context)},
             ],
             "stream": False,
-            "options": {"temperature": 0.35, "num_predict": 400},
+            "options": {"temperature": 0.35, "num_predict": 520},
         }
 
         async with httpx.AsyncClient(timeout=60.0) as client:
@@ -57,7 +57,7 @@ class GroqOverviewGenerator(OverviewGenerator):
                 {"role": "user", "content": build_overview_prompt(english, translation, context)},
             ],
             "temperature": 0.35,
-            "max_tokens": 500,
+            "max_tokens": 560,
         }
 
         async with httpx.AsyncClient(timeout=30.0) as client:

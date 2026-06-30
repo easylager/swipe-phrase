@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { animate, motion } from "framer-motion";
+import { animate, motion, useTransform } from "framer-motion";
 import { api } from "@/lib/api";
 import { buildFeedQueue, isCardItem } from "@/lib/feedQueue";
 import type { Card, Stats } from "@/types/card";
@@ -9,10 +9,18 @@ import type { FeedItem } from "@/types/feed";
 import { AdCard } from "@/components/AdCard";
 import { ComboCounter } from "@/components/ComboCounter";
 import { FlashCard } from "@/components/FlashCard";
+import { OfflineBanner } from "@/components/OfflineBanner";
 import { SessionDigest } from "@/components/SessionDigest";
 import { useCardSwipe } from "@/hooks/useCardSwipe";
+import { useOfflineStatus } from "@/hooks/useOfflineStatus";
+import { snoozeLabel, type SnoozeDays } from "@/lib/snooze";
+
+const CARD_EXIT_EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
+const CARD_EXIT_DURATION = 0.34;
+const CARD_SNOOZE_DURATION = 0.3;
 
 export function SwipeFeed() {
+  const { isOnline, pendingCount } = useOfflineStatus();
   const [feed, setFeed] = useState<FeedItem[]>([]);
   const [index, setIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
@@ -21,13 +29,12 @@ export function SwipeFeed() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [graduatedAnim, setGraduatedAnim] = useState(false);
   const [combo, setCombo] = useState(0);
-  const [sessionNotice, setSessionNotice] = useState<string | null>(null);
+  const [actionNotice, setActionNotice] = useState<string | null>(null);
 
   const flipTimeRef = useRef<number | null>(null);
   const cardShownRef = useRef(0);
   const busyRef = useRef(false);
   const comboRef = useRef(0);
-  const sessionMaxComboRef = useRef(0);
 
   const resetCombo = useCallback(() => {
     comboRef.current = 0;
@@ -36,7 +43,6 @@ export function SwipeFeed() {
 
   const incrementCombo = useCallback(() => {
     comboRef.current += 1;
-    sessionMaxComboRef.current = Math.max(sessionMaxComboRef.current, comboRef.current);
     setCombo(comboRef.current);
     return comboRef.current;
   }, []);
@@ -52,7 +58,6 @@ export function SwipeFeed() {
       cardShownRef.current = Date.now();
       flipTimeRef.current = null;
       resetCombo();
-      sessionMaxComboRef.current = 0;
       return statsData;
     } finally {
       setLoading(false);
@@ -64,10 +69,10 @@ export function SwipeFeed() {
   }, [loadSession]);
 
   useEffect(() => {
-    if (!sessionNotice) return;
-    const timer = setTimeout(() => setSessionNotice(null), 4000);
+    if (!actionNotice) return;
+    const timer = setTimeout(() => setActionNotice(null), 2800);
     return () => clearTimeout(timer);
-  }, [sessionNotice]);
+  }, [actionNotice]);
 
   const updateCardInFeed = useCallback((updated: Card) => {
     setFeed((prev) =>
@@ -92,12 +97,7 @@ export function SwipeFeed() {
   };
 
   const finishSession = useCallback(async () => {
-    const sessionBest = sessionMaxComboRef.current;
-    const statsData = await loadSession();
-    if (sessionBest > 0 && statsData) {
-      const best = statsData.best_combo_today ?? sessionBest;
-      setSessionNotice(`Лучшее комбо сегодня: 🔥 ${best}`);
-    }
+    await loadSession();
   }, [loadSession]);
 
   const goNext = useCallback(() => {
@@ -112,15 +112,8 @@ export function SwipeFeed() {
     }
   }, [index, feed.length, finishSession]);
 
-  const bumpSwipes = useCallback((comboAfter?: number) => {
-    setStats((s) => {
-      if (!s) return s;
-      const nextBest =
-        comboAfter && comboAfter > (s.best_combo_today ?? 0)
-          ? comboAfter
-          : (s.best_combo_today ?? 0);
-      return { swipes_today: s.swipes_today + 1, best_combo_today: nextBest };
-    });
+  const bumpSwipes = useCallback(() => {
+    setStats((s) => (s ? { ...s, swipes_today: s.swipes_today + 1 } : s));
   }, []);
 
   const dismissAd = useCallback(() => {
@@ -128,18 +121,17 @@ export function SwipeFeed() {
   }, [goNext]);
 
   const swipeAwayAsKnown = useCallback(
-    async (card: Card) => {
+    (card: Card) => {
       const { flipLatency, answerLatency } = getLatencies();
       const comboAfter = incrementCombo();
-      bumpSwipes(comboAfter);
-      try {
-        await api.submitReview(card.id, "good", flipLatency, answerLatency, comboAfter);
-        const statsData = await api.getStats();
-        setStats(statsData);
-      } catch {
-        /* ignore */
-      }
+      bumpSwipes();
       goNext();
+
+      void api
+        .submitReview(card.id, "good", flipLatency, answerLatency, comboAfter)
+        .then(() => api.getStats())
+        .then(setStats)
+        .catch(() => {});
     },
     [goNext, bumpSwipes, incrementCombo],
   );
@@ -166,6 +158,47 @@ export function SwipeFeed() {
     disabled: busy,
   });
 
+  const nextScale = useTransform(y, [-360, 0], [1, 0.94]);
+  const nextOpacity = useTransform(y, [-360, 0], [1, 0.38]);
+
+  const animateCardExit = useCallback(async () => {
+    await animate(y, -window.innerHeight, {
+      duration: CARD_EXIT_DURATION,
+      ease: CARD_EXIT_EASE,
+    });
+    goNext();
+    y.set(0);
+  }, [goNext, y]);
+
+  const animateCardSnooze = useCallback(async () => {
+    await animate(y, window.innerHeight * 0.65, {
+      duration: CARD_SNOOZE_DURATION,
+      ease: CARD_EXIT_EASE,
+    });
+    goNext();
+    y.set(0);
+  }, [goNext, y]);
+
+  const handleSnooze = useCallback(
+    async (days: SnoozeDays) => {
+      if (!currentCard || busyRef.current) return;
+      busyRef.current = true;
+      setBusy(true);
+
+      setActionNotice(`Отложено · ${snoozeLabel(days)}`);
+
+      void api.snoozeCard(currentCard.id, days).catch(() => {});
+
+      try {
+        await animateCardSnooze();
+      } finally {
+        busyRef.current = false;
+        setBusy(false);
+      }
+    },
+    [currentCard, animateCardSnooze],
+  );
+
   const submitAndAdvance = useCallback(
     async (rating: "again" | "graduated") => {
       if (!currentCard || busyRef.current) return;
@@ -180,18 +213,15 @@ export function SwipeFeed() {
         resetCombo();
       }
 
-      try {
-        await api.submitReview(
-          card.id,
-          rating,
-          flipLatency,
-          answerLatency,
-          comboAfter ?? undefined,
-        );
-        bumpSwipes(comboAfter ?? undefined);
-        const statsData = await api.getStats();
-        setStats(statsData);
+      bumpSwipes();
 
+      void api
+        .submitReview(card.id, rating, flipLatency, answerLatency, comboAfter ?? undefined)
+        .then(() => api.getStats())
+        .then(setStats)
+        .catch(() => {});
+
+      try {
         if (rating === "graduated") {
           setGraduatedAnim(true);
           setTimeout(() => {
@@ -199,16 +229,14 @@ export function SwipeFeed() {
             goNext();
           }, 700);
         } else {
-          await animate(y, -window.innerHeight * 0.85, { duration: 0.2, ease: "easeIn" });
-          y.set(0);
-          goNext();
+          await animateCardExit();
         }
       } finally {
         busyRef.current = false;
         setBusy(false);
       }
     },
-    [currentCard, goNext, y, bumpSwipes, incrementCombo, resetCombo],
+    [currentCard, goNext, bumpSwipes, incrementCombo, resetCombo, animateCardExit],
   );
 
   const handleRequestOverview = async () => {
@@ -254,6 +282,7 @@ export function SwipeFeed() {
         onReview={preview ? undefined : submitAndAdvance}
         onRequestOverview={preview ? undefined : handleRequestOverview}
         onRegenerateOverview={preview ? undefined : handleRegenerateOverview}
+        onSnooze={preview ? undefined : handleSnooze}
         onCardUpdate={preview ? undefined : updateCardInFeed}
         onEdit={preview ? undefined : handleEditCard}
         disabled={busy}
@@ -286,9 +315,15 @@ export function SwipeFeed() {
 
   return (
     <div className="relative flex h-full flex-col overflow-hidden touch-none" {...handlers}>
+      <OfflineBanner isOnline={isOnline} pendingCount={pendingCount} />
+      {actionNotice && (
+        <div className="shrink-0 border-b border-sky-500/20 bg-sky-500/10 px-4 py-2 text-center text-xs font-medium text-sky-200/90">
+          {actionNotice}
+        </div>
+      )}
       {stats && (
         <div className="pointer-events-none relative shrink-0">
-          <SessionDigest stats={stats} sessionNotice={sessionNotice} />
+          <SessionDigest stats={stats} />
           <ComboCounter combo={combo} />
         </div>
       )}
@@ -296,9 +331,12 @@ export function SwipeFeed() {
       <div className="relative flex min-h-0 flex-1 flex-col">
         <div className="relative min-h-0 flex-1 px-3 pt-3">
           {next && (
-            <div className="pointer-events-none absolute inset-0 z-0 scale-[0.94] opacity-30">
+            <motion.div
+              className="pointer-events-none absolute inset-0 z-0"
+              style={{ scale: nextScale, opacity: nextOpacity }}
+            >
               {renderFeedItem(next, false, true)}
-            </div>
+            </motion.div>
           )}
 
           <motion.div

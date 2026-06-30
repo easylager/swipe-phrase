@@ -18,7 +18,8 @@ export function ComboCounter({ combo }: ComboCounterProps) {
           className="pointer-events-none absolute right-3 top-2 z-20 flex items-center gap-1 rounded-full bg-orange-500/20 px-3 py-1.5 backdrop-blur-sm"
         >
           <span className="text-sm">🔥</span>
-          <span className="text-sm font-bold tabular-nums text-orange-300">x{combo}</span>
+          <span className="text-sm font-bold tabular-nums text-orange-300">{combo}</span>
+          <span className="text-xs text-orange-300/80">знал подряд</span>
         </motion.div>
       )}
     </AnimatePresence>
