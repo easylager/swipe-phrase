@@ -1,4 +1,5 @@
 import type { Stats } from "@/types/card";
+import { StreakBadge } from "@/components/ComboCounter";
 
 function swipeLabel(n: number): string {
   const mod10 = n % 10;
@@ -11,9 +12,10 @@ function swipeLabel(n: number): string {
 
 interface SessionDigestProps {
   stats: Stats;
+  combo?: number;
 }
 
-export function SessionDigest({ stats }: SessionDigestProps) {
+export function SessionDigest({ stats, combo = 0 }: SessionDigestProps) {
   const n = stats.swipes_today;
 
   return (
@@ -22,6 +24,7 @@ export function SessionDigest({ stats }: SessionDigestProps) {
         Сегодня{" "}
         <span className="text-base font-semibold tabular-nums text-white">{n}</span>{" "}
         {swipeLabel(n)}
+        <StreakBadge combo={combo} />
       </p>
     </div>
   );

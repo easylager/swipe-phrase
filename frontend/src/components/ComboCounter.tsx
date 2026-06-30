@@ -1,26 +1,27 @@
 "use client";
 
-import { motion, AnimatePresence } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 
-interface ComboCounterProps {
+interface StreakBadgeProps {
   combo: number;
 }
 
-export function ComboCounter({ combo }: ComboCounterProps) {
+export function StreakBadge({ combo }: StreakBadgeProps) {
   return (
     <AnimatePresence>
-      {combo > 0 && (
-        <motion.div
+      {combo >= 2 && (
+        <motion.span
           key={combo}
-          initial={{ scale: 0.6, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          exit={{ scale: 0.8, opacity: 0 }}
-          className="pointer-events-none absolute right-3 top-2 z-20 flex items-center gap-1 rounded-full bg-orange-500/20 px-3 py-1.5 backdrop-blur-sm"
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.9 }}
+          className="inline-flex items-center gap-1 text-orange-300/90"
         >
+          <span className="text-zinc-600">·</span>
           <span className="text-sm">🔥</span>
-          <span className="text-sm font-bold tabular-nums text-orange-300">{combo}</span>
-          <span className="text-xs text-orange-300/80">знал подряд</span>
-        </motion.div>
+          <span className="text-sm font-semibold tabular-nums text-orange-300">{combo}</span>
+          <span className="text-sm">подряд</span>
+        </motion.span>
       )}
     </AnimatePresence>
   );

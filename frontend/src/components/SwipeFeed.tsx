@@ -7,7 +7,6 @@ import { buildFeedQueue, isCardItem } from "@/lib/feedQueue";
 import type { Card, Stats } from "@/types/card";
 import type { FeedItem } from "@/types/feed";
 import { AdCard } from "@/components/AdCard";
-import { ComboCounter } from "@/components/ComboCounter";
 import { FlashCard } from "@/components/FlashCard";
 import { OfflineBanner } from "@/components/OfflineBanner";
 import { SessionDigest } from "@/components/SessionDigest";
@@ -322,9 +321,8 @@ export function SwipeFeed() {
         </div>
       )}
       {stats && (
-        <div className="pointer-events-none relative shrink-0">
-          <SessionDigest stats={stats} />
-          <ComboCounter combo={combo} />
+        <div className="pointer-events-none shrink-0">
+          <SessionDigest stats={stats} combo={combo} />
         </div>
       )}
 
