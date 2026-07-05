@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { animate, motion, useTransform } from "framer-motion";
 import { api } from "@/lib/api";
 import { buildFeedQueue, isCardItem } from "@/lib/feedQueue";
+import { clearFeedProgress, getFeedProgress, saveFeedProgress } from "@/lib/feedProgress";
 import type { Card, Stats } from "@/types/card";
 import type { FeedItem } from "@/types/feed";
 import { AdCard } from "@/components/AdCard";
@@ -48,6 +49,7 @@ export function SwipeFeed() {
 
   const loadSession = useCallback(async (): Promise<Stats | null> => {
     setLoading(true);
+    clearFeedProgress();
     try {
       const [session, statsData] = await Promise.all([api.getSession(), api.getStats()]);
       setFeed(buildFeedQueue(session));
@@ -64,8 +66,26 @@ export function SwipeFeed() {
   }, [resetCombo]);
 
   useEffect(() => {
+    const saved = getFeedProgress();
+    if (saved) {
+      setFeed(saved.feed);
+      setIndex(saved.index);
+      setCombo(saved.combo);
+      comboRef.current = saved.combo;
+      setIsFlipped(saved.isFlipped);
+      setStats(saved.stats);
+      setLoading(false);
+      cardShownRef.current = Date.now();
+      void api.getStats().then(setStats).catch(() => {});
+      return;
+    }
     void loadSession();
   }, [loadSession]);
+
+  useEffect(() => {
+    if (loading || feed.length === 0) return;
+    saveFeedProgress({ feed, index, combo, isFlipped, stats });
+  }, [feed, index, combo, isFlipped, stats, loading]);
 
   useEffect(() => {
     if (!actionNotice) return;

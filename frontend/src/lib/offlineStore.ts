@@ -1,5 +1,6 @@
 import type { Card, ReviewRating, SnoozeDays, Stats } from "@/types/card";
 import type { User } from "@/types/user";
+import { clearFeedProgress } from "@/lib/feedProgress";
 
 const CACHE_KEY = "phrase_feed_offline_cache";
 const PENDING_KEY = "phrase_feed_pending_reviews";
@@ -152,4 +153,5 @@ export function clearOfflineData(): void {
   localStorage.removeItem(PENDING_KEY);
   localStorage.removeItem(PENDING_SNOOZES_KEY);
   localStorage.removeItem(USER_KEY);
+  clearFeedProgress();
 }

@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import { useState } from "react";
 import { AuthScreen } from "@/components/AuthScreen";
 import { CardCreator } from "@/components/CardCreator";
+import { InstallPrompt } from "@/components/InstallPrompt";
 import { StatsButton, StatsModal } from "@/components/StatsModal";
 import { useAuth } from "@/contexts/AuthContext";
 import { useVisualKeyboard } from "@/hooks/useVisualKeyboard";
@@ -60,6 +61,8 @@ export default function Home() {
           </button>
         </div>
       </header>
+
+      <InstallPrompt />
 
       {showStats && <StatsModal onClose={() => setShowStats(false)} />}
 
