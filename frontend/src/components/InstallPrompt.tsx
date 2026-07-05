@@ -78,9 +78,10 @@ export function InstallPrompt() {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-5 flex items-start gap-3">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-violet-600 text-lg font-bold text-white">
-            PF
-          </div>
+          <div
+            aria-hidden="true"
+            className="h-12 w-12 shrink-0 rounded-2xl bg-[url('/apple-touch-icon.png')] bg-cover bg-center"
+          />
           <div>
             <h2 className="text-xl font-bold text-white">
               {onIos ? "Добавь на экран iPhone" : androidReady ? "Установи Phrase Feed" : "Добавь на домашний экран"}
@@ -130,7 +131,12 @@ export function InstallPrompt() {
             <Step
               number={3}
               title="Нажми «Добавить» в правом верхнем углу"
-              detail="На домашнем экране появится иконка Phrase Feed — открывай её, а не закладку в Safari."
+              detail="На домашнем экране появится иконка Phrase Feed."
+            />
+            <Step
+              number={4}
+              title="Открой приложение с иконки и войди в аккаунт"
+              detail="Логин из Safari сюда не переносится — это отдельное приложение. Войди один раз с иконки, и сессия сохранится."
             />
           </ol>
         )}

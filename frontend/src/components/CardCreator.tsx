@@ -63,24 +63,32 @@ export function CardCreator({ onCreated }: CardCreatorProps) {
   };
 
   const fieldClass =
-    "w-full rounded-2xl border border-white/10 bg-zinc-900 px-4 py-4 text-[17px] text-white placeholder-zinc-600 outline-none transition focus:border-violet-500/60";
+    "w-full rounded-[1.35rem] border border-white/10 bg-white/[0.055] px-4 py-4 text-[17px] text-white placeholder-zinc-600 outline-none shadow-inner shadow-black/10 transition focus:border-violet-300/40 focus:bg-white/[0.08] focus:ring-4 focus:ring-violet-500/10";
 
   return (
     <form
       id={formId}
       onSubmit={handleSubmit}
       autoComplete="off"
-      className="flex min-h-full flex-col px-4 pb-6 pt-5"
+      className="flex min-h-full flex-col px-4 pb-5 pt-2"
     >
-      <div className="mb-6">
-        <h2 className="text-2xl font-bold tracking-tight text-white">Новая фраза</h2>
-        <p className="mt-1 text-sm text-zinc-500">Поймал в жизни — закинь в ленту</p>
+      <div className="glass-panel mb-4 rounded-[1.8rem] px-5 py-4">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-violet-300/80">
+          Быстрый захват
+        </p>
+        <h2 className="mt-1 text-2xl font-bold tracking-tight text-white">Новая фраза</h2>
+        <p className="mt-1 text-sm leading-relaxed text-zinc-400">
+          Поймал в жизни — сохрани сейчас, повторишь в ленте позже.
+        </p>
       </div>
 
-      <div className="flex flex-1 flex-col gap-4">
-        <div>
-          <label htmlFor={`${formId}-en`} className="mb-2 block text-xs font-medium uppercase tracking-wider text-zinc-500">
-            English
+      <div className="flex flex-1 flex-col gap-3">
+        <div className="glass-panel rounded-[1.8rem] p-4">
+          <label
+            htmlFor={`${formId}-en`}
+            className="mb-2 block text-[11px] font-bold uppercase tracking-[0.22em] text-zinc-500"
+          >
+            English phrase
           </label>
           <input
             id={`${formId}-en`}
@@ -101,13 +109,16 @@ export function CardCreator({ onCreated }: CardCreatorProps) {
                 translationRef.current?.focus();
               }
             }}
-            placeholder="lowkey"
+            placeholder="lowkey, gotcha, it hits different..."
             {...phraseInputProps}
           />
         </div>
 
-        <div>
-          <label htmlFor={`${formId}-ru`} className="mb-2 block text-xs font-medium uppercase tracking-wider text-zinc-500">
+        <div className="glass-panel rounded-[1.8rem] p-4">
+          <label
+            htmlFor={`${formId}-ru`}
+            className="mb-2 block text-[11px] font-bold uppercase tracking-[0.22em] text-zinc-500"
+          >
             Перевод
           </label>
           <input
@@ -124,14 +135,14 @@ export function CardCreator({ onCreated }: CardCreatorProps) {
             className={fieldClass}
             value={translation}
             onChange={(e) => setTranslation(e.target.value)}
-            placeholder="типа, ну ты понял"
+            placeholder="коротко по-русски"
             {...phraseInputProps}
           />
         </div>
 
-        <div>
-          <p className="mb-2 text-xs font-medium uppercase tracking-wider text-zinc-500">
-            Тег <span className="normal-case text-zinc-600">(необязательно)</span>
+        <div className="glass-panel rounded-[1.8rem] p-4">
+          <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.22em] text-zinc-500">
+            Контекст <span className="normal-case tracking-normal text-zinc-600">(опционально)</span>
           </p>
           <div className="flex flex-wrap gap-2">
             {TAGS.map((t) => (
@@ -139,10 +150,10 @@ export function CardCreator({ onCreated }: CardCreatorProps) {
                 key={t}
                 type="button"
                 onClick={() => setTag((prev) => (prev === t ? null : t))}
-                className={`rounded-full px-3.5 py-2 text-sm font-medium transition ${
+                className={`tap-scale rounded-full border px-3.5 py-2 text-sm font-semibold ${
                   tag === t
-                    ? "bg-violet-600 text-white"
-                    : "bg-white/5 text-zinc-400 hover:bg-white/10 hover:text-white"
+                    ? "border-violet-300/30 bg-white text-zinc-950 shadow-lg shadow-violet-500/10"
+                    : "border-white/10 bg-white/[0.045] text-zinc-400 hover:bg-white/[0.08] hover:text-white"
                 }`}
               >
                 {t}
@@ -155,13 +166,16 @@ export function CardCreator({ onCreated }: CardCreatorProps) {
           <button
             type="button"
             onClick={() => setShowNote(true)}
-            className="self-start text-sm text-zinc-500 transition hover:text-zinc-300"
+            className="tap-scale mx-1 self-start rounded-full border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm font-semibold text-zinc-400 hover:bg-white/[0.08] hover:text-white"
           >
-            + Где услышал?
+            + Добавить заметку
           </button>
         ) : (
-          <div>
-            <label htmlFor={`${formId}-note`} className="mb-2 block text-xs font-medium text-zinc-500">
+          <div className="glass-panel rounded-[1.8rem] p-4">
+            <label
+              htmlFor={`${formId}-note`}
+              className="mb-2 block text-[11px] font-bold uppercase tracking-[0.22em] text-zinc-500"
+            >
               Где услышал
             </label>
             <input
@@ -181,17 +195,23 @@ export function CardCreator({ onCreated }: CardCreatorProps) {
         )}
       </div>
 
-      <div className="mt-6 shrink-0 space-y-2">
-        {error && <p className="text-center text-sm text-red-400">{error}</p>}
+      <div className="mt-4 shrink-0 space-y-2">
+        {error && (
+          <p className="rounded-2xl border border-red-300/15 bg-red-500/10 px-4 py-3 text-center text-sm text-red-200">
+            {error}
+          </p>
+        )}
         {success && (
-          <p className="text-center text-sm font-medium text-emerald-400">В ленте ✓</p>
+          <p className="rounded-2xl border border-emerald-300/15 bg-emerald-500/10 px-4 py-3 text-center text-sm font-semibold text-emerald-200">
+            Сохранено в ленту
+          </p>
         )}
         <button
           type="submit"
           disabled={loading || !canSubmit}
-          className="w-full rounded-2xl bg-violet-600 py-4 text-base font-semibold text-white transition active:scale-[0.98] disabled:opacity-40"
+          className="tap-scale w-full rounded-[1.45rem] bg-white py-4 text-base font-black text-zinc-950 shadow-xl shadow-violet-500/15 disabled:opacity-40"
         >
-          {loading ? "Сохраняю..." : "В ленту"}
+          {loading ? "Сохраняю..." : "Добавить в ленту"}
         </button>
       </div>
     </form>

@@ -1,6 +1,6 @@
 import type { Card, CreateCardPayload, DailyStats, ReviewRating, SnoozeDays, Stats, UpdateCardPayload } from "@/types/card";
 import type { AuthResponse, User } from "@/types/user";
-import { clearToken, getToken } from "@/lib/auth";
+import { getToken } from "@/lib/auth";
 import {
   applyCachedSnooze,
   bumpCachedSwipeCount,
@@ -16,7 +16,7 @@ import {
   setCachedUser,
   setOfflineCache,
 } from "@/lib/offlineStore";
-import { fetchWithTimeout, isBrowserOnline, isNetworkError, NetworkError } from "@/lib/network";
+import { fetchWithTimeout, isBrowserOnline, isNetworkError, AuthError, NetworkError } from "@/lib/network";
 
 const API_PORT = process.env.NEXT_PUBLIC_API_PORT ?? "8001";
 
@@ -151,8 +151,8 @@ async function request<T>(path: string, options?: RequestOptions): Promise<T> {
     });
 
     if (res.status === 401 && token) {
-      clearToken();
       notifyAuthExpired();
+      throw new AuthError(await parseError(res));
     }
 
     if (!res.ok) {

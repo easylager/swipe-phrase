@@ -19,10 +19,10 @@ export function SessionDigest({ stats, combo = 0 }: SessionDigestProps) {
   const n = stats.swipes_today;
 
   return (
-    <div className="shrink-0 border-b border-white/5 px-4 py-2.5 text-center">
-      <p className="text-sm text-zinc-500">
-        Сегодня{" "}
-        <span className="text-base font-semibold tabular-nums text-white">{n}</span>{" "}
+    <div className="shrink-0 px-4 pb-1 pt-1">
+      <p className="mx-auto inline-flex items-center rounded-full border border-white/10 bg-white/[0.055] px-3.5 py-2 text-xs font-semibold text-zinc-400 backdrop-blur-xl">
+        Сегодня
+        <span className="mx-1.5 text-sm font-black tabular-nums text-white">{n}</span>
         {swipeLabel(n)}
         <StreakBadge combo={combo} />
       </p>

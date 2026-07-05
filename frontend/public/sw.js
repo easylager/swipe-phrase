@@ -1,4 +1,4 @@
-const CACHE = "phrase-feed-v1";
+const CACHE = "phrase-feed-v2";
 const SHELL = ["/", "/manifest.json", "/apple-touch-icon.png", "/icons/icon-192.png", "/icons/icon-512.png"];
 
 self.addEventListener("install", (event) => {

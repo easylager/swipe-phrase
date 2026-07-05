@@ -146,23 +146,25 @@ export function OverviewSheet({
 }: OverviewSheetProps) {
   return (
     <div
-      className="absolute inset-0 z-20 flex items-end bg-black/70 backdrop-blur-sm"
+      className="absolute inset-0 z-20 flex items-end bg-black/75 backdrop-blur-sm"
       data-no-swipe
       onClick={onClose}
     >
       <div
-        className="max-h-[78%] w-full overflow-y-auto rounded-t-3xl border border-white/10 bg-zinc-900 p-6 shadow-2xl"
+        className="glass-panel max-h-[78%] w-full overflow-y-auto rounded-t-[2rem] p-6 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
-            <p className="text-xs font-medium uppercase tracking-wider text-violet-400">Обзор</p>
-            <p className="mt-1 text-lg font-semibold text-white">{english}</p>
+            <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-violet-300/80">
+              Обзор
+            </p>
+            <p className="mt-1 text-xl font-black tracking-tight text-white">{english}</p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-full bg-white/10 px-3 py-1 text-sm text-zinc-300 hover:bg-white/20"
+            className="tap-scale flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.06] text-sm text-zinc-300 hover:bg-white/[0.1]"
           >
             ✕
           </button>
@@ -183,7 +185,7 @@ export function OverviewSheet({
               <button
                 type="button"
                 onClick={onRegenerate}
-                className="mt-4 rounded-xl bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-500"
+                className="tap-scale mt-4 rounded-2xl bg-white px-4 py-3 text-sm font-black text-zinc-950"
               >
                 Попробовать снова
               </button>
@@ -196,7 +198,7 @@ export function OverviewSheet({
               <button
                 type="button"
                 onClick={onRegenerate}
-                className="mt-6 w-full rounded-xl bg-white/5 py-2.5 text-sm text-zinc-500 transition hover:bg-white/10 hover:text-zinc-300"
+                className="tap-scale mt-6 w-full rounded-2xl border border-white/10 bg-white/[0.055] py-3 text-sm font-semibold text-zinc-400 hover:bg-white/[0.09] hover:text-zinc-200"
               >
                 Обновить обзор
               </button>
@@ -233,12 +235,12 @@ export function OverviewButton({ status, onClick }: OverviewButtonProps) {
         e.stopPropagation();
         onClick();
       }}
-      className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition ${
+      className={`tap-scale flex min-w-0 flex-1 items-center justify-center gap-2 rounded-2xl border px-3 py-3 text-xs font-semibold ${
         status === "ready"
-          ? "bg-amber-500/15 text-amber-300 hover:bg-amber-500/25"
+          ? "border-amber-300/15 bg-amber-500/12 text-amber-200 hover:bg-amber-500/18"
           : status === "failed"
-            ? "bg-red-500/10 text-red-400 hover:bg-red-500/20"
-            : "bg-white/5 text-zinc-500"
+            ? "border-red-300/15 bg-red-500/10 text-red-300 hover:bg-red-500/18"
+            : "border-white/10 bg-white/[0.06] text-zinc-400 hover:bg-white/[0.1] hover:text-white"
       }`}
     >
       {isLoading && (

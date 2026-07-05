@@ -13,8 +13,10 @@ export function OfflineBanner({ isOnline, pendingCount }: OfflineBannerProps) {
     : `Синхронизация… ${pendingCount} ответов в очереди`;
 
   return (
-    <div className="shrink-0 border-b border-amber-500/20 bg-amber-500/10 px-4 py-2 text-center text-xs font-medium text-amber-200/90">
-      {text}
+    <div className="shrink-0 px-4 py-2">
+      <div className="rounded-full border border-amber-300/20 bg-amber-500/10 px-4 py-2 text-center text-xs font-semibold text-amber-100/90 backdrop-blur-xl">
+        {text}
+      </div>
     </div>
   );
 }

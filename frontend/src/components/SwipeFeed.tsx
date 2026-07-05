@@ -313,24 +313,28 @@ export function SwipeFeed() {
   if (loading) {
     return (
       <div className="flex h-full items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-violet-400 border-t-transparent" />
+        <div className="h-9 w-9 animate-spin rounded-full border-2 border-white/70 border-t-transparent" />
       </div>
     );
   }
 
   if (!current) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-4 px-6 text-center">
-        <p className="text-2xl font-semibold text-white">Нет карточек</p>
-        <p className="text-zinc-400">Добавь первую фразу во вкладке «Добавить»</p>
+      <div className="flex h-full flex-col items-center justify-center px-6 text-center">
+        <div className="glass-panel rounded-[2rem] px-6 py-8">
+          <p className="text-2xl font-black tracking-tight text-white">Лента пустая</p>
+          <p className="mt-2 text-sm leading-relaxed text-zinc-400">
+            Добавь первую фразу, и Phrase Feed соберёт для тебя тренировку.
+          </p>
+        </div>
       </div>
     );
   }
 
   const hintText =
     current.kind === "ad"
-      ? "↑ свайп — пропустить · тап — подробности"
-      : "↑ свайп — знал · тап — ответ";
+      ? "Свайп вверх — пропустить · тап — детали"
+      : "Свайп вверх — знаю · тап — ответ";
 
   return (
     <div className="relative flex h-full flex-col overflow-hidden touch-none" {...handlers}>
@@ -347,7 +351,7 @@ export function SwipeFeed() {
       )}
 
       <div className="relative flex min-h-0 flex-1 flex-col">
-        <div className="relative min-h-0 flex-1 px-3 pt-3">
+        <div className="relative min-h-0 flex-1 px-4 pt-2">
           {next && (
             <motion.div
               className="pointer-events-none absolute inset-0 z-0"
@@ -366,7 +370,7 @@ export function SwipeFeed() {
           </motion.div>
         </div>
 
-        <p className="pointer-events-none shrink-0 px-4 pb-1 pt-2 text-center text-[11px] tracking-wide text-zinc-600/90">
+        <p className="pointer-events-none shrink-0 px-4 pb-2 pt-2 text-center text-[11px] font-semibold tracking-wide text-zinc-500/90">
           {hintText}
         </p>
       </div>

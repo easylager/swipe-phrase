@@ -3,6 +3,10 @@
 :root {
   --background: #09090b;
   --foreground: #fafafa;
+  --surface: rgba(24, 24, 27, 0.72);
+  --surface-strong: rgba(39, 39, 42, 0.86);
+  --hairline: rgba(255, 255, 255, 0.08);
+  --glow-violet: rgba(124, 58, 237, 0.34);
 }
 
 @theme inline {
@@ -12,11 +16,34 @@
 }
 
 body {
-  background: var(--background);
+  background:
+    radial-gradient(circle at 50% -15%, rgba(124, 58, 237, 0.24), transparent 34rem),
+    radial-gradient(circle at 18% 20%, rgba(14, 165, 233, 0.12), transparent 26rem),
+    var(--background);
   color: var(--foreground);
   font-family: var(--font-sans);
   -webkit-tap-highlight-color: transparent;
   overscroll-behavior: none;
+  min-height: 100dvh;
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+button {
+  touch-action: manipulation;
+}
+
+.pb-safe {
+  padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+}
+
+.nav-safe {
+  padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
 }
 
 /* Prevent iOS zoom-on-focus; keeps keyboard transition smooth */
@@ -26,10 +53,56 @@ select {
   font-size: 16px;
 }
 
-.pb-safe {
-  padding-bottom: max(1rem, env(safe-area-inset-bottom));
-}
-
 .perspective-\[1200px\] {
   perspective: 1200px;
+}
+
+.premium-shell {
+  background:
+    linear-gradient(180deg, rgba(24, 24, 27, 0.58), rgba(9, 9, 11, 0.9) 30%),
+    rgba(9, 9, 11, 0.92);
+}
+
+.glass-panel {
+  border: 1px solid var(--hairline);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.035));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 24px 70px rgba(0, 0, 0, 0.34);
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
+}
+
+.premium-card {
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  background:
+    radial-gradient(circle at 20% 0%, rgba(124, 58, 237, 0.2), transparent 20rem),
+    linear-gradient(145deg, rgba(39, 39, 42, 0.96), rgba(9, 9, 11, 0.98));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.09),
+    0 28px 90px rgba(0, 0, 0, 0.54),
+    0 0 0 1px rgba(124, 58, 237, 0.06);
+}
+
+.tap-scale {
+  transition:
+    transform 180ms ease,
+    background-color 180ms ease,
+    border-color 180ms ease,
+    color 180ms ease,
+    opacity 180ms ease;
+}
+
+.tap-scale:active {
+  transform: scale(0.97);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
 }

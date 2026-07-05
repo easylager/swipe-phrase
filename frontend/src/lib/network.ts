@@ -5,6 +5,19 @@ export class NetworkError extends Error {
   }
 }
 
+export class AuthError extends Error {
+  readonly status = 401;
+
+  constructor(message = "Unauthorized") {
+    super(message);
+    this.name = "AuthError";
+  }
+}
+
+export function isAuthError(err: unknown): err is AuthError {
+  return err instanceof AuthError;
+}
+
 export function isBrowserOnline(): boolean {
   return typeof navigator === "undefined" ? true : navigator.onLine;
 }

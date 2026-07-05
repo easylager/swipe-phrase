@@ -12,7 +12,7 @@ import {
 import { api } from "@/lib/api";
 import { clearToken, getToken, setToken } from "@/lib/auth";
 import { clearOfflineData, getCachedUser, setCachedUser } from "@/lib/offlineStore";
-import { isNetworkError } from "@/lib/network";
+import { isAuthError, isNetworkError } from "@/lib/network";
 import type { User } from "@/types/user";
 
 interface AuthContextValue {
@@ -37,17 +37,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    const cached = getCachedUser();
+    if (cached) {
+      setUser(cached);
+    }
+
     try {
       const me = await api.me();
       setCachedUser(me);
       setUser(me);
     } catch (err) {
-      const cached = getCachedUser();
-      if (cached && isNetworkError(err)) {
-        setUser(cached);
-      } else {
+      if (isAuthError(err)) {
         clearToken();
         setUser(null);
+      } else if (cached) {
+        setUser(cached);
+      } else if (isNetworkError(err)) {
+        setUser(null);
+      } else {
+        setUser(cached);
       }
     } finally {
       setIsLoading(false);
@@ -59,7 +67,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [bootstrap]);
 
   useEffect(() => {
-    const onExpired = () => setUser(null);
+    const onExpired = () => {
+      clearToken();
+      setUser(null);
+    };
     window.addEventListener("auth:expired", onExpired);
     return () => window.removeEventListener("auth:expired", onExpired);
   }, []);
@@ -67,17 +78,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = useCallback(async (email: string, password: string) => {
     const res = await api.login(email, password);
     setToken(res.access_token);
-    const me = await api.me();
-    setCachedUser(me);
-    setUser(me);
+    setCachedUser(res.user);
+    setUser(res.user);
   }, []);
 
   const register = useCallback(async (email: string, password: string) => {
     const res = await api.register(email, password);
     setToken(res.access_token);
-    const me = await api.me();
-    setCachedUser(me);
-    setUser(me);
+    setCachedUser(res.user);
+    setUser(res.user);
   }, []);
 
   const logout = useCallback(() => {
