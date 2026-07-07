@@ -9,6 +9,7 @@ import type {
   UpdateCardPayload,
   VocabularyStats,
 } from "@/types/card";
+import type { SquadCollection } from "@/types/collection";
 import type { AuthResponse, User } from "@/types/user";
 import { getToken } from "@/lib/auth";
 import {
@@ -268,6 +269,7 @@ export const api = {
     return stats;
   },
   getMatchdayStats: () => request<MatchdayStats>("/api/stats/matchday"),
+  getSquadCollection: () => request<SquadCollection>("/api/stats/squad"),
   getDailyStats: (days = 14) => request<DailyStats>(`/api/stats/daily?days=${days}`),
   getVocabularyStats: () => request<VocabularyStats>("/api/stats/vocabulary"),
   listCards: () => request<Card[]>("/api/cards"),

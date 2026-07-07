@@ -119,6 +119,32 @@ class MatchdayMvpWord(BaseModel):
     previous_accuracy: float
 
 
+class SquadPlayerResponse(BaseModel):
+    id: str
+    name: str
+    full_name: str
+    position: str
+    number: int
+    era: str
+    rarity: str
+    metric: str
+    target: int
+    current: int
+    progress: float
+    unlocked: bool
+    unlock_hint: str
+    moment: str
+
+
+class SquadCollectionResponse(BaseModel):
+    total: int
+    unlocked_count: int
+    wc2026_total: int
+    wc2026_unlocked: int
+    players: list[SquadPlayerResponse]
+    next_unlock: SquadPlayerResponse | None = None
+
+
 class MatchdayStatsResponse(BaseModel):
     date: str
     target_reviews: int

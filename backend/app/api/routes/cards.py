@@ -7,6 +7,7 @@ from app.api.schemas import (
     MatchdayStatsResponse,
     RequestOverviewBody,
     SnoozeCardRequest,
+    SquadCollectionResponse,
     StatsResponse,
     SubmitReviewRequest,
     UpdateCardRequest,
@@ -267,6 +268,12 @@ async def get_stats(repo: CardRepository = Depends(_repo)) -> StatsResponse:
 async def get_matchday_stats(repo: CardRepository = Depends(_repo)) -> MatchdayStatsResponse:
     data = await repo.get_matchday_stats()
     return MatchdayStatsResponse(**data)
+
+
+@router.get("/stats/squad", response_model=SquadCollectionResponse)
+async def get_squad_collection(repo: CardRepository = Depends(_repo)) -> SquadCollectionResponse:
+    data = await repo.get_squad_collection()
+    return SquadCollectionResponse(**data)
 
 
 @router.get("/stats/daily", response_model=DailyStatsResponse)

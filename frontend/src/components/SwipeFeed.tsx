@@ -11,9 +11,12 @@ import { AdCard } from "@/components/AdCard";
 import { FlashCard } from "@/components/FlashCard";
 import { OfflineBanner } from "@/components/OfflineBanner";
 import { SessionDigest } from "@/components/SessionDigest";
+import { PlayerUnlockOverlay } from "@/components/PlayerUnlockOverlay";
 import { useCardSwipe } from "@/hooks/useCardSwipe";
 import { useOfflineStatus } from "@/hooks/useOfflineStatus";
+import { findNewUnlocks, isSquadInitialized, markPlayersSeen, markSquadInitialized } from "@/lib/collectionSeen";
 import { snoozeLabel, type SnoozeDays } from "@/lib/snooze";
+import type { SquadCollection, SquadPlayer } from "@/types/collection";
 
 const CARD_EXIT_EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
 const CARD_EXIT_DURATION = 0.34;
@@ -21,9 +24,11 @@ const CARD_SNOOZE_DURATION = 0.3;
 
 function MatchResultOverlay({
   data,
+  squad,
   onClose,
 }: {
   data: MatchdayStats;
+  squad: SquadCollection | null;
   onClose: () => void;
 }) {
   const result = data.today_result;
@@ -62,9 +67,21 @@ function MatchResultOverlay({
           <p>
             Точность: <span className="font-semibold text-white">{data.today_accuracy}%</span>
           </p>
-          <p>
-            Level {data.level} · XP {data.xp_total}
-          </p>
+          {squad && (
+            <>
+              <p>
+                ЧМ 2026:{" "}
+                <span className="font-semibold text-white">
+                  {squad.wc2026_unlocked}/{squad.wc2026_total}
+                </span>
+              </p>
+              {squad.next_unlock && !squad.next_unlock.unlocked && (
+                <p className="text-zinc-400">
+                  До {squad.next_unlock.name}: {squad.next_unlock.current}/{squad.next_unlock.target}
+                </p>
+              )}
+            </>
+          )}
           {data.mvp_word && (
             <p className="text-zinc-200">
               MVP слова дня: <span className="font-semibold">{data.mvp_word.english}</span>{" "}
@@ -93,6 +110,8 @@ export function SwipeFeed() {
   const [busy, setBusy] = useState(false);
   const [stats, setStats] = useState<Stats | null>(null);
   const [matchday, setMatchday] = useState<MatchdayStats | null>(null);
+  const [squad, setSquad] = useState<SquadCollection | null>(null);
+  const [pendingUnlocks, setPendingUnlocks] = useState<SquadPlayer[]>([]);
   const [showMatchResult, setShowMatchResult] = useState(false);
   const [graduatedAnim, setGraduatedAnim] = useState(false);
   const [combo, setCombo] = useState(0);
@@ -125,6 +144,44 @@ export function SwipeFeed() {
     return comboRef.current;
   }, []);
 
+  const refreshSquad = useCallback(async () => {
+    try {
+      const collection = await api.getSquadCollection();
+      setSquad(collection);
+      window.dispatchEvent(
+        new CustomEvent("phrase-feed:squad-updated", { detail: collection }),
+      );
+      const unlockedIds = collection.players.filter((p) => p.unlocked).map((p) => p.id);
+      if (!isSquadInitialized()) {
+        markPlayersSeen(unlockedIds);
+        markSquadInitialized();
+      } else {
+        const newIds = findNewUnlocks(unlockedIds);
+        if (newIds.length > 0) {
+          const newPlayers = collection.players.filter((p) => newIds.includes(p.id));
+          setPendingUnlocks((prev) => {
+            const existing = new Set(prev.map((p) => p.id));
+            const merged = [...prev];
+            for (const player of newPlayers) {
+              if (!existing.has(player.id)) merged.push(player);
+            }
+            return merged;
+          });
+        }
+      }
+    } catch {
+      /* offline — skip */
+    }
+  }, []);
+
+  const dismissUnlockOverlay = useCallback(() => {
+    setPendingUnlocks((prev) => {
+      if (prev.length === 0) return prev;
+      markPlayersSeen(prev.map((p) => p.id));
+      return [];
+    });
+  }, []);
+
   const loadSession = useCallback(async (): Promise<Stats | null> => {
     setLoading(true);
     clearFeedProgress();
@@ -138,6 +195,7 @@ export function SwipeFeed() {
       setStats(statsData);
       setMatchday(matchdayData);
       previousTodayTotalRef.current = matchdayData.today_total;
+      void refreshSquad();
       setIndex(0);
       setIsFlipped(false);
       cardShownRef.current = Date.now();
@@ -147,7 +205,7 @@ export function SwipeFeed() {
     } finally {
       setLoading(false);
     }
-  }, [resetCombo]);
+  }, [resetCombo, refreshSquad]);
 
   useEffect(() => {
     const saved = getFeedProgress();
@@ -168,10 +226,11 @@ export function SwipeFeed() {
           setMatchday(data);
         })
         .catch(() => {});
+      void refreshSquad();
       return;
     }
     void loadSession();
-  }, [loadSession]);
+  }, [loadSession, refreshSquad]);
 
   useEffect(() => {
     if (loading || feed.length === 0) return;
@@ -208,7 +267,9 @@ export function SwipeFeed() {
   const current = feed[index];
   const currentCard = current && isCardItem(current) ? current.card : null;
   const matchdayCompact = matchday
-    ? `M ${matchday.today_total}/${matchday.target_reviews} · L${matchday.level}`
+    ? squad
+      ? `Матч ${matchday.today_total}/${matchday.target_reviews} · ${squad.wc2026_unlocked}/${squad.wc2026_total}`
+      : `Матч ${matchday.today_total}/${matchday.target_reviews}`
     : null;
 
   const getLatencies = () => {
@@ -257,10 +318,11 @@ export function SwipeFeed() {
         .then(([statsData, matchdayData]) => {
           setStats(statsData);
           setMatchday(matchdayData);
+          void refreshSquad();
         })
         .catch(() => {});
     },
-    [goNext, bumpSwipes, incrementCombo],
+    [goNext, bumpSwipes, incrementCombo, refreshSquad],
   );
 
   const handleFlip = useCallback(() => {
@@ -346,6 +408,7 @@ export function SwipeFeed() {
         .then(([statsData, matchdayData]) => {
           setStats(statsData);
           setMatchday(matchdayData);
+          void refreshSquad();
         })
         .catch(() => {});
 
@@ -364,7 +427,7 @@ export function SwipeFeed() {
         setBusy(false);
       }
     },
-    [currentCard, goNext, bumpSwipes, incrementCombo, resetCombo, animateCardExit],
+    [currentCard, goNext, bumpSwipes, incrementCombo, resetCombo, animateCardExit, refreshSquad],
   );
 
   const handleRequestOverview = async () => {
@@ -490,10 +553,14 @@ export function SwipeFeed() {
       {showMatchResult && matchday && (
         <MatchResultOverlay
           data={matchday}
+          squad={squad}
           onClose={() => {
             setShowMatchResult(false);
           }}
         />
+      )}
+      {pendingUnlocks.length > 0 && (
+        <PlayerUnlockOverlay players={pendingUnlocks} onDismiss={dismissUnlockOverlay} />
       )}
     </div>
   );

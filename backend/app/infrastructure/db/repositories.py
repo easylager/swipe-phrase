@@ -4,6 +4,7 @@ from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.domain.collection.players import build_collection
 from app.domain.entities.card import Card, CardState, ReviewRating
 from app.domain.services.fsrs_scheduler import FSRSScheduler
 from app.domain.services.session_builder import SessionBuilder, SessionCandidate
@@ -598,6 +599,72 @@ class CardRepository:
             "season_name": "Road to Wembley",
             "mvp_word": mvp_word,
         }
+
+    async def get_collection_metrics(self) -> dict[str, int]:
+        """Learning metrics that drive England squad unlocks."""
+        target_reviews = max(1, settings.matchday_target_reviews)
+        target_accuracy = max(1.0, min(100.0, settings.matchday_target_accuracy))
+
+        daily = await self._daily_review_outcomes(days=120)
+        matchdays_played = 0
+        matchday_wins = 0
+        high_accuracy_wins = 0
+        for item in daily:
+            if item["total"] >= target_reviews:
+                matchdays_played += 1
+                accuracy = item["accuracy"]
+                completed = accuracy >= target_accuracy
+                if completed:
+                    matchday_wins += 1
+                if completed and accuracy >= 80.0:
+                    high_accuracy_wins += 1
+
+        unbeaten_run = 0
+        if daily:
+            for item in daily:
+                item["completed"] = (
+                    item["total"] >= target_reviews and item["accuracy"] >= target_accuracy
+                )
+            for item in reversed(daily):
+                if item["completed"]:
+                    unbeaten_run += 1
+                elif item["total"] > 0:
+                    break
+
+        cards = await self.list_all()
+        graduated_words = sum(
+            1 for c in cards if c.schedule and c.schedule.state == CardState.GRADUATED.value
+        )
+        vocabulary_size = len(cards)
+
+        totals = await self._session.execute(
+            select(func.count(ReviewModel.id))
+            .join(CardModel, ReviewModel.card_id == CardModel.id)
+            .where(CardModel.user_id == self._user_id)
+        )
+        total_reviews = int(totals.scalar_one() or 0)
+
+        combo_result = await self._session.execute(
+            select(func.max(UserDailyStatsModel.best_combo)).where(
+                UserDailyStatsModel.user_id == self._user_id
+            )
+        )
+        best_combo_ever = int(combo_result.scalar_one_or_none() or 0)
+
+        return {
+            "matchdays_played": matchdays_played,
+            "matchday_wins": matchday_wins,
+            "unbeaten_run": unbeaten_run,
+            "total_reviews": total_reviews,
+            "graduated_words": graduated_words,
+            "vocabulary_size": vocabulary_size,
+            "best_combo_ever": best_combo_ever,
+            "high_accuracy_wins": high_accuracy_wins,
+        }
+
+    async def get_squad_collection(self) -> dict:
+        metrics = await self.get_collection_metrics()
+        return build_collection(metrics)
 
     async def get_stats_full(self) -> dict:
         """Internal metrics for session builder — not exposed in UI."""
