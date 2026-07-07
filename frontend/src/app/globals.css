@@ -109,7 +109,103 @@ select {
   transform: scale(0.98);
 }
 
+/* — Panini album & sticker cards — */
+.panini-album-backdrop {
+  background:
+    radial-gradient(circle at 50% 0%, rgba(212, 175, 55, 0.08), transparent 40%),
+    radial-gradient(circle at 80% 80%, rgba(11, 31, 94, 0.2), transparent 35%),
+    #0a0a0c;
+}
+
+.panini-album-cover {
+  background: linear-gradient(135deg, rgba(11, 31, 94, 0.5), rgba(207, 16, 32, 0.15));
+}
+
+.panini-sticker {
+  box-shadow:
+    0 2px 0 rgba(0, 0, 0, 0.35),
+    0 8px 20px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  transition: transform 180ms ease, box-shadow 180ms ease;
+}
+
+.panini-sticker:active {
+  transform: scale(0.96);
+}
+
+.panini-sticker-locked {
+  filter: saturate(0.35);
+}
+
+.panini-foil-base {
+  background: linear-gradient(145deg, #e4e4e7, #fafafa);
+}
+
+.panini-foil-rare::before,
+.panini-foil-icon::before,
+.panini-foil-gold::before,
+.panini-foil-golden::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0.35;
+  background: linear-gradient(
+    125deg,
+    transparent 30%,
+    rgba(255, 255, 255, 0.55) 45%,
+    transparent 60%
+  );
+  animation: panini-shimmer 4s ease-in-out infinite;
+}
+
+.panini-foil-rare {
+  box-shadow:
+    0 0 0 1px rgba(59, 130, 246, 0.4),
+    0 8px 24px rgba(59, 130, 246, 0.15);
+}
+
+.panini-foil-icon {
+  box-shadow:
+    0 0 0 1px rgba(207, 16, 32, 0.45),
+    0 8px 28px rgba(207, 16, 32, 0.2);
+}
+
+.panini-foil-gold {
+  box-shadow:
+    0 0 0 1px rgba(212, 175, 55, 0.55),
+    0 8px 28px rgba(212, 175, 55, 0.2);
+}
+
+.panini-foil-golden {
+  box-shadow:
+    0 0 0 1px rgba(245, 158, 11, 0.5),
+    0 8px 28px rgba(245, 158, 11, 0.18);
+}
+
+@keyframes panini-shimmer {
+  0%,
+  100% {
+    transform: translateX(-120%) skewX(-12deg);
+    opacity: 0;
+  }
+  45% {
+    opacity: 0.4;
+  }
+  55% {
+    transform: translateX(120%) skewX(-12deg);
+    opacity: 0.4;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .panini-foil-rare::before,
+  .panini-foil-icon::before,
+  .panini-foil-gold::before,
+  .panini-foil-golden::before {
+    animation: none;
+  }
   *,
   *::before,
   *::after {

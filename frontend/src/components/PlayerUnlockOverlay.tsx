@@ -1,6 +1,6 @@
 "use client";
 
-import { PlayerCardHero } from "@/components/PlayerCard";
+import { PaniniCardHero } from "@/components/panini/PaniniCard";
 import type { SquadPlayer } from "@/types/collection";
 
 interface PlayerUnlockOverlayProps {
@@ -23,15 +23,15 @@ export function PlayerUnlockOverlay({ players, onDismiss }: PlayerUnlockOverlayP
         className="w-full max-w-sm rounded-3xl border border-white/10 bg-zinc-900/95 p-5 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <p className="text-center text-[11px] font-bold uppercase tracking-[0.28em] text-red-300/90">
-          New signing
+        <p className="text-center text-[11px] font-bold uppercase tracking-[0.28em] text-amber-300/90">
+          New sticker
         </p>
         <p className="mt-1 text-center text-xl font-black text-white">
-          {extra > 0 ? `${players.length} новых игроков!` : "Игрок в составе!"}
+          {extra > 0 ? `${players.length} новых наклеек!` : "Наклейка в альбом!"}
         </p>
 
         <div className="my-5">
-          <PlayerCardHero player={primary} />
+          <PaniniCardHero player={primary} />
         </div>
 
         {extra > 0 && (
@@ -47,7 +47,7 @@ export function PlayerUnlockOverlay({ players, onDismiss }: PlayerUnlockOverlayP
           onClick={onDismiss}
           className="tap-scale mt-5 w-full rounded-2xl bg-white py-3.5 text-sm font-black text-zinc-950"
         >
-          В состав!
+          В альбом!
         </button>
       </div>
     </div>
