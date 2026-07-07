@@ -72,6 +72,29 @@ class CardResponse(BaseModel):
 class StatsResponse(BaseModel):
     swipes_today: int
     best_combo_today: int = 0
+    applied_today: int = 0
+
+
+class UsageChallengeResponse(BaseModel):
+    id: int
+    card_id: int
+    target_phrase: str
+    scenario: str
+    hint: str | None = None
+    example_answer: str | None = None
+    status: str
+
+
+class SessionItemResponse(BaseModel):
+    kind: str  # review | usage_challenge
+    card: CardResponse
+    challenge: UsageChallengeResponse | None = None
+
+
+class SubmitUsageChallengeRequest(BaseModel):
+    outcome: str = Field(..., pattern="^(applied|again)$")
+    answer_latency_ms: int | None = Field(None, ge=0)
+    combo_after: int | None = Field(None, ge=0, le=9999)
 
 
 class DailySwipeStat(BaseModel):

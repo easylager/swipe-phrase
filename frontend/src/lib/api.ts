@@ -4,6 +4,7 @@ import type {
   DailyStats,
   MatchdayStats,
   ReviewRating,
+  SessionItem,
   SnoozeDays,
   Stats,
   UpdateCardPayload,
@@ -257,9 +258,14 @@ export const api = {
   me: () => request<User>("/api/auth/me"),
 
   getSession: async () => {
-    const session = await request<Card[]>("/api/session");
+    const session = await request<SessionItem[]>("/api/session");
     const stats = getCachedStats();
-    if (stats) cacheSessionAndStats(session, stats);
+    if (stats) {
+      cacheSessionAndStats(
+        session.map((item) => item.card),
+        stats,
+      );
+    }
     return session;
   },
   getStats: async () => {
@@ -269,6 +275,7 @@ export const api = {
     return stats;
   },
   getMatchdayStats: () => request<MatchdayStats>("/api/stats/matchday"),
+  /** Album UI disabled — endpoint kept for SquadCollection.tsx when re-enabled */
   getSquadCollection: () => request<SquadCollection>("/api/stats/squad"),
   getDailyStats: (days = 14) => request<DailyStats>(`/api/stats/daily?days=${days}`),
   getVocabularyStats: () => request<VocabularyStats>("/api/stats/vocabulary"),
@@ -295,6 +302,20 @@ export const api = {
       body: JSON.stringify({
         rating,
         flip_latency_ms: flipLatencyMs ?? null,
+        answer_latency_ms: answerLatencyMs ?? null,
+        combo_after: comboAfter ?? null,
+      }),
+    }),
+  submitUsageChallenge: (
+    challengeId: number,
+    outcome: "applied" | "again",
+    answerLatencyMs?: number,
+    comboAfter?: number,
+  ) =>
+    request<Card>(`/api/usage-challenges/${challengeId}/respond`, {
+      method: "POST",
+      body: JSON.stringify({
+        outcome,
         answer_latency_ms: answerLatencyMs ?? null,
         combo_after: comboAfter ?? null,
       }),

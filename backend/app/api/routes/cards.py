@@ -6,11 +6,14 @@ from app.api.schemas import (
     DailyStatsResponse,
     MatchdayStatsResponse,
     RequestOverviewBody,
+    SessionItemResponse,
     SnoozeCardRequest,
     SquadCollectionResponse,
     StatsResponse,
     SubmitReviewRequest,
+    SubmitUsageChallengeRequest,
     UpdateCardRequest,
+    UsageChallengeResponse,
     VocabularyStatsResponse,
 )
 from app.api.deps import get_card_repo, get_current_user
@@ -107,10 +110,50 @@ async def list_cards(repo: CardRepository = Depends(_repo)) -> list[CardResponse
     return [_to_response(c) for c in cards]
 
 
-@router.get("/session", response_model=list[CardResponse])
-async def get_session(repo: CardRepository = Depends(_repo)) -> list[CardResponse]:
-    session_cards = await repo.build_session()
-    return [_candidate_to_response(c) for c in session_cards]
+@router.get("/session", response_model=list[SessionItemResponse])
+async def get_session(repo: CardRepository = Depends(_repo)) -> list[SessionItemResponse]:
+    items = await repo.build_session_items()
+    response: list[SessionItemResponse] = []
+    for item in items:
+        candidate = item["candidate"]
+        card = _candidate_to_response(candidate)
+        challenge = item.get("challenge")
+        challenge_resp = None
+        if challenge is not None:
+            challenge_resp = UsageChallengeResponse(
+                id=challenge.id,
+                card_id=challenge.card_id,
+                target_phrase=challenge.target_phrase,
+                scenario=challenge.scenario_ru,
+                hint=challenge.hint_ru,
+                example_answer=challenge.example_answer_en,
+                status=challenge.status,
+            )
+        response.append(
+            SessionItemResponse(
+                kind=item["kind"],
+                card=card,
+                challenge=challenge_resp,
+            )
+        )
+    return response
+
+
+@router.post("/usage-challenges/{challenge_id}/respond", response_model=CardResponse)
+async def respond_usage_challenge(
+    challenge_id: int,
+    body: SubmitUsageChallengeRequest,
+    repo: CardRepository = Depends(_repo),
+) -> CardResponse:
+    challenge, card = await repo.submit_usage_challenge(
+        challenge_id,
+        outcome=body.outcome,
+        answer_latency_ms=body.answer_latency_ms,
+        combo_after=body.combo_after,
+    )
+    if not challenge or not card:
+        raise HTTPException(status_code=404, detail="Challenge not found")
+    return _to_response(card)
 
 
 @router.get("/cards/{card_id}", response_model=CardResponse)

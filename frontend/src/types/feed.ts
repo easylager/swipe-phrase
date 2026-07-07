@@ -1,4 +1,5 @@
 import type { Card } from "@/types/card";
+import type { UsageChallenge } from "@/types/card";
 
 export interface MockAd {
   id: string;
@@ -15,4 +16,5 @@ export interface MockAd {
 
 export type FeedItem =
   | { id: string; kind: "card"; card: Card }
+  | { id: string; kind: "usage_challenge"; card: Card; challenge: UsageChallenge }
   | { id: string; kind: "ad"; ad: MockAd };

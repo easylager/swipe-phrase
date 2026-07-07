@@ -1,5 +1,6 @@
 "use client";
 
+/** @deprecated Album temporarily disabled — not imported from app shell. */
 import { useEffect, useMemo, useState } from "react";
 import { ERA_THEMES } from "@/components/panini/albumTheme";
 import { PaniniCard } from "@/components/panini/PaniniCard";

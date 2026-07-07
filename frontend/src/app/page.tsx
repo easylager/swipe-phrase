@@ -1,16 +1,20 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { AuthScreen } from "@/components/AuthScreen";
 import { CardCreator } from "@/components/CardCreator";
 import { InstallPrompt } from "@/components/InstallPrompt";
 import { StatsButton, StatsModal } from "@/components/StatsModal";
-import { SquadButton, SquadCollectionSheet } from "@/components/SquadCollection";
 import { useAuth } from "@/contexts/AuthContext";
 import { useVisualKeyboard } from "@/hooks/useVisualKeyboard";
+
+/* ── England Panini album — временно отключён ──────────────────────────────
+import { SquadButton, SquadCollectionSheet } from "@/components/SquadCollection";
 import { api } from "@/lib/api";
 import type { SquadCollection } from "@/types/collection";
+import { useEffect } from "react";
+────────────────────────────────────────────────────────────────────────── */
 
 const SwipeFeed = dynamic(
   () => import("@/components/SwipeFeed").then((m) => m.SwipeFeed),
@@ -48,22 +52,19 @@ export default function Home() {
   const [tab, setTab] = useState<Tab>("feed");
   const [feedKey, setFeedKey] = useState(0);
   const [showStats, setShowStats] = useState(false);
-  const [showSquad, setShowSquad] = useState(false);
-  const [squad, setSquad] = useState<SquadCollection | null>(null);
   const keyboardOpen = useVisualKeyboard();
   const hideNav = tab === "add" && keyboardOpen;
 
+  /* Album disabled — restore when re-enabling Panini squad:
+  const [showSquad, setShowSquad] = useState(false);
+  const [squad, setSquad] = useState<SquadCollection | null>(null);
+
   useEffect(() => {
     let cancelled = false;
-    api
-      .getSquadCollection()
-      .then((data) => {
-        if (!cancelled) setSquad(data);
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
+    api.getSquadCollection().then((data) => {
+      if (!cancelled) setSquad(data);
+    }).catch(() => {});
+    return () => { cancelled = true; };
   }, []);
 
   useEffect(() => {
@@ -78,6 +79,7 @@ export default function Home() {
   const refreshSquad = () => {
     void api.getSquadCollection().then(setSquad).catch(() => {});
   };
+  */
 
   if (isLoading) {
     return (
@@ -105,11 +107,7 @@ export default function Home() {
             <p className="truncate text-xs text-zinc-500">{user.email}</p>
           </div>
           <div className="flex shrink-0 items-center gap-2">
-            <SquadButton
-              onClick={() => setShowSquad(true)}
-              unlocked={squad?.unlocked_count ?? 0}
-              total={squad?.total ?? 33}
-            />
+            {/* Album disabled — <SquadButton onClick={() => setShowSquad(true)} unlocked={squad?.unlocked_count ?? 0} total={squad?.total ?? 33} /> */}
             <StatsButton onClick={() => setShowStats(true)} />
             <button
               type="button"
@@ -136,14 +134,7 @@ export default function Home() {
       <InstallPrompt />
 
       {showStats && <StatsModal onClose={() => setShowStats(false)} />}
-      {showSquad && (
-        <SquadCollectionSheet
-          onClose={() => {
-            setShowSquad(false);
-            refreshSquad();
-          }}
-        />
-      )}
+      {/* Album disabled — {showSquad && <SquadCollectionSheet onClose={() => { setShowSquad(false); refreshSquad(); }} />} */}
 
       <main className="flex-1 overflow-hidden">
         {tab === "feed" ? (

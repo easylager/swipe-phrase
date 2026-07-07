@@ -3,103 +3,22 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { animate, motion } from "framer-motion";
 import { api } from "@/lib/api";
-import { buildFeedQueue, isCardItem } from "@/lib/feedQueue";
+import { buildFeedQueue, isUsageChallengeItem } from "@/lib/feedQueue";
 import { clearFeedProgress, getFeedProgress, saveFeedProgress } from "@/lib/feedProgress";
-import type { Card, MatchdayStats, Stats } from "@/types/card";
+import type { Card, Stats } from "@/types/card";
 import type { FeedItem } from "@/types/feed";
 import { AdCard } from "@/components/AdCard";
 import { FlashCard } from "@/components/FlashCard";
 import { OfflineBanner } from "@/components/OfflineBanner";
 import { SessionDigest } from "@/components/SessionDigest";
-import { PlayerUnlockOverlay } from "@/components/PlayerUnlockOverlay";
+import { UsageChallengeCard } from "@/components/UsageChallengeCard";
 import { useCardSwipe } from "@/hooks/useCardSwipe";
 import { useOfflineStatus } from "@/hooks/useOfflineStatus";
-import { findNewUnlocks, isSquadInitialized, markPlayersSeen, markSquadInitialized } from "@/lib/collectionSeen";
 import { snoozeLabel, type SnoozeDays } from "@/lib/snooze";
-import type { SquadCollection, SquadPlayer } from "@/types/collection";
 
 const CARD_EXIT_EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
 const CARD_EXIT_DURATION = 0.34;
 const CARD_SNOOZE_DURATION = 0.3;
-
-function MatchResultOverlay({
-  data,
-  squad,
-  onClose,
-}: {
-  data: MatchdayStats;
-  squad: SquadCollection | null;
-  onClose: () => void;
-}) {
-  const result = data.today_result;
-  if (!result) return null;
-
-  const title =
-    result === "win" ? "Победа" : result === "draw" ? "Ничья" : "Поражение";
-  const subtitle =
-    result === "win"
-      ? "Цель дня выполнена"
-      : result === "draw"
-        ? "Почти дожал — завтра добьем"
-        : "Сегодня защита просела, нужен камбэк";
-  const tone =
-    result === "win"
-      ? "from-blue-700/80 to-red-500/80"
-      : result === "draw"
-        ? "from-zinc-700/80 to-blue-700/70"
-        : "from-red-700/80 to-zinc-700/80";
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 px-4 pb-6 backdrop-blur-sm sm:items-center"
-      onClick={onClose}
-    >
-      <div
-        className="w-full max-w-md rounded-3xl border border-white/10 bg-zinc-900/95 p-5 shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className={`rounded-2xl bg-gradient-to-r ${tone} p-4`}>
-          <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-white/80">Match result</p>
-          <p className="mt-1 text-2xl font-black text-white">{title}</p>
-          <p className="mt-1 text-sm text-white/90">{subtitle}</p>
-        </div>
-        <div className="mt-4 space-y-2 text-sm text-zinc-300">
-          <p>
-            Точность: <span className="font-semibold text-white">{data.today_accuracy}%</span>
-          </p>
-          {squad && (
-            <>
-              <p>
-                ЧМ 2026:{" "}
-                <span className="font-semibold text-white">
-                  {squad.wc2026_unlocked}/{squad.wc2026_total}
-                </span>
-              </p>
-              {squad.next_unlock && !squad.next_unlock.unlocked && (
-                <p className="text-zinc-400">
-                  До {squad.next_unlock.name}: {squad.next_unlock.current}/{squad.next_unlock.target}
-                </p>
-              )}
-            </>
-          )}
-          {data.mvp_word && (
-            <p className="text-zinc-200">
-              MVP слова дня: <span className="font-semibold">{data.mvp_word.english}</span>{" "}
-              (+{data.mvp_word.delta_accuracy}%)
-            </p>
-          )}
-        </div>
-        <button
-          type="button"
-          onClick={onClose}
-          className="tap-scale mt-4 w-full rounded-2xl bg-white py-3 text-sm font-black text-zinc-950"
-        >
-          Вперед
-        </button>
-      </div>
-    </div>
-  );
-}
 
 export function SwipeFeed() {
   const { isOnline, pendingCount } = useOfflineStatus();
@@ -109,11 +28,7 @@ export function SwipeFeed() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [stats, setStats] = useState<Stats | null>(null);
-  const [matchday, setMatchday] = useState<MatchdayStats | null>(null);
-  const [squad, setSquad] = useState<SquadCollection | null>(null);
-  const [pendingUnlocks, setPendingUnlocks] = useState<SquadPlayer[]>([]);
-  const [showMatchResult, setShowMatchResult] = useState(false);
-  const [graduatedAnim, setGraduatedAnim] = useState(false);
+  const [celebration, setCelebration] = useState<string | null>(null);
   const [combo, setCombo] = useState(0);
   const [actionNotice, setActionNotice] = useState<string | null>(null);
 
@@ -121,17 +36,6 @@ export function SwipeFeed() {
   const cardShownRef = useRef(0);
   const busyRef = useRef(false);
   const comboRef = useRef(0);
-  const previousTodayTotalRef = useRef(0);
-
-  const wasMatchResultSeen = useCallback((date: string): boolean => {
-    if (typeof window === "undefined") return false;
-    return localStorage.getItem(`phrase_feed_match_result_seen_${date}`) === "1";
-  }, []);
-
-  const markMatchResultSeen = useCallback((date: string): void => {
-    if (typeof window === "undefined") return;
-    localStorage.setItem(`phrase_feed_match_result_seen_${date}`, "1");
-  }, []);
 
   const resetCombo = useCallback(() => {
     comboRef.current = 0;
@@ -144,58 +48,13 @@ export function SwipeFeed() {
     return comboRef.current;
   }, []);
 
-  const refreshSquad = useCallback(async () => {
-    try {
-      const collection = await api.getSquadCollection();
-      setSquad(collection);
-      window.dispatchEvent(
-        new CustomEvent("phrase-feed:squad-updated", { detail: collection }),
-      );
-      const unlockedIds = collection.players.filter((p) => p.unlocked).map((p) => p.id);
-      if (!isSquadInitialized()) {
-        markPlayersSeen(unlockedIds);
-        markSquadInitialized();
-      } else {
-        const newIds = findNewUnlocks(unlockedIds);
-        if (newIds.length > 0) {
-          const newPlayers = collection.players.filter((p) => newIds.includes(p.id));
-          setPendingUnlocks((prev) => {
-            const existing = new Set(prev.map((p) => p.id));
-            const merged = [...prev];
-            for (const player of newPlayers) {
-              if (!existing.has(player.id)) merged.push(player);
-            }
-            return merged;
-          });
-        }
-      }
-    } catch {
-      /* offline — skip */
-    }
-  }, []);
-
-  const dismissUnlockOverlay = useCallback(() => {
-    setPendingUnlocks((prev) => {
-      if (prev.length === 0) return prev;
-      markPlayersSeen(prev.map((p) => p.id));
-      return [];
-    });
-  }, []);
-
   const loadSession = useCallback(async (): Promise<Stats | null> => {
     setLoading(true);
     clearFeedProgress();
     try {
-      const [session, statsData, matchdayData] = await Promise.all([
-        api.getSession(),
-        api.getStats(),
-        api.getMatchdayStats(),
-      ]);
+      const [session, statsData] = await Promise.all([api.getSession(), api.getStats()]);
       setFeed(buildFeedQueue(session));
       setStats(statsData);
-      setMatchday(matchdayData);
-      previousTodayTotalRef.current = matchdayData.today_total;
-      void refreshSquad();
       setIndex(0);
       setIsFlipped(false);
       cardShownRef.current = Date.now();
@@ -205,7 +64,7 @@ export function SwipeFeed() {
     } finally {
       setLoading(false);
     }
-  }, [resetCombo, refreshSquad]);
+  }, [resetCombo]);
 
   useEffect(() => {
     const saved = getFeedProgress();
@@ -219,18 +78,10 @@ export function SwipeFeed() {
       setLoading(false);
       cardShownRef.current = Date.now();
       void api.getStats().then(setStats).catch(() => {});
-      void api
-        .getMatchdayStats()
-        .then((data) => {
-          previousTodayTotalRef.current = data.today_total;
-          setMatchday(data);
-        })
-        .catch(() => {});
-      void refreshSquad();
       return;
     }
     void loadSession();
-  }, [loadSession, refreshSquad]);
+  }, [loadSession]);
 
   useEffect(() => {
     if (loading || feed.length === 0) return;
@@ -243,34 +94,18 @@ export function SwipeFeed() {
     return () => clearTimeout(timer);
   }, [actionNotice]);
 
-  useEffect(() => {
-    if (!matchday || !matchday.today_result) return;
-    const reachedGoalNow =
-      previousTodayTotalRef.current < matchday.target_reviews &&
-      matchday.today_total >= matchday.target_reviews;
-    previousTodayTotalRef.current = matchday.today_total;
-    if (!reachedGoalNow) return;
-    if (wasMatchResultSeen(matchday.date)) return;
-    setShowMatchResult(true);
-    markMatchResultSeen(matchday.date);
-  }, [matchday, markMatchResultSeen, wasMatchResultSeen]);
-
   const updateCardInFeed = useCallback((updated: Card) => {
     setFeed((prev) =>
       prev.map((item) => {
-        if (!isCardItem(item) || item.card.id !== updated.id) return item;
+        if (item.kind === "ad" || item.card.id !== updated.id) return item;
         return { ...item, card: { ...updated, prompt_lang: item.card.prompt_lang } };
       }),
     );
   }, []);
 
   const current = feed[index];
-  const currentCard = current && isCardItem(current) ? current.card : null;
-  const matchdayCompact = matchday
-    ? squad
-      ? `Матч ${matchday.today_total}/${matchday.target_reviews} · ${squad.wc2026_unlocked}/${squad.wc2026_total}`
-      : `Матч ${matchday.today_total}/${matchday.target_reviews}`
-    : null;
+  const currentCard = current && current.kind !== "ad" ? current.card : null;
+  const isChallenge = current ? isUsageChallengeItem(current) : false;
 
   const getLatencies = () => {
     const now = Date.now();
@@ -297,8 +132,16 @@ export function SwipeFeed() {
     }
   }, [index, feed.length, finishSession]);
 
-  const bumpSwipes = useCallback(() => {
-    setStats((s) => (s ? { ...s, swipes_today: s.swipes_today + 1 } : s));
+  const bumpSwipes = useCallback((applied = false) => {
+    setStats((s) =>
+      s
+        ? {
+            ...s,
+            swipes_today: s.swipes_today + 1,
+            applied_today: applied ? (s.applied_today ?? 0) + 1 : s.applied_today,
+          }
+        : s,
+    );
   }, []);
 
   const dismissAd = useCallback(() => {
@@ -309,44 +152,39 @@ export function SwipeFeed() {
     (card: Card) => {
       const { flipLatency, answerLatency } = getLatencies();
       const comboAfter = incrementCombo();
-      bumpSwipes();
+      bumpSwipes(false);
       goNext();
 
       void api
         .submitReview(card.id, "good", flipLatency, answerLatency, comboAfter)
-        .then(() => Promise.all([api.getStats(), api.getMatchdayStats()]))
-        .then(([statsData, matchdayData]) => {
-          setStats(statsData);
-          setMatchday(matchdayData);
-          void refreshSquad();
-        })
+        .then(() => api.getStats())
+        .then(setStats)
         .catch(() => {});
     },
-    [goNext, bumpSwipes, incrementCombo, refreshSquad],
+    [goNext, bumpSwipes, incrementCombo],
   );
 
   const handleFlip = useCallback(() => {
+    if (isChallenge) return;
     if (!isFlipped) flipTimeRef.current = Date.now();
     setIsFlipped((f) => !f);
-  }, [isFlipped]);
+  }, [isFlipped, isChallenge]);
 
   const handleSwipeUp = useCallback(() => {
     if (!current || busyRef.current) return;
-
     if (current.kind === "ad") {
       dismissAd();
       return;
     }
-
+    if (current.kind === "usage_challenge") return;
     swipeAwayAsKnown(current.card);
   }, [current, dismissAd, swipeAwayAsKnown]);
 
   const { y, scale, opacity, handlers } = useCardSwipe({
     onSwipeUp: handleSwipeUp,
     onTap: handleFlip,
-    disabled: busy,
+    disabled: busy || isChallenge,
   });
-
 
   const animateCardExit = useCallback(async () => {
     await animate(y, -window.innerHeight, {
@@ -368,14 +206,11 @@ export function SwipeFeed() {
 
   const handleSnooze = useCallback(
     async (days: SnoozeDays) => {
-      if (!currentCard || busyRef.current) return;
+      if (!currentCard || busyRef.current || isChallenge) return;
       busyRef.current = true;
       setBusy(true);
-
       setActionNotice(`Отложено · ${snoozeLabel(days)}`);
-
       void api.snoozeCard(currentCard.id, days).catch(() => {});
-
       try {
         await animateCardSnooze();
       } finally {
@@ -383,12 +218,12 @@ export function SwipeFeed() {
         setBusy(false);
       }
     },
-    [currentCard, animateCardSnooze],
+    [currentCard, isChallenge, animateCardSnooze],
   );
 
   const submitAndAdvance = useCallback(
     async (rating: "again" | "graduated") => {
-      if (!currentCard || busyRef.current) return;
+      if (!currentCard || busyRef.current || isChallenge) return;
       busyRef.current = true;
       setBusy(true);
 
@@ -400,23 +235,19 @@ export function SwipeFeed() {
         resetCombo();
       }
 
-      bumpSwipes();
+      bumpSwipes(false);
 
       void api
         .submitReview(card.id, rating, flipLatency, answerLatency, comboAfter ?? undefined)
-        .then(() => Promise.all([api.getStats(), api.getMatchdayStats()]))
-        .then(([statsData, matchdayData]) => {
-          setStats(statsData);
-          setMatchday(matchdayData);
-          void refreshSquad();
-        })
+        .then(() => api.getStats())
+        .then(setStats)
         .catch(() => {});
 
       try {
         if (rating === "graduated") {
-          setGraduatedAnim(true);
+          setCelebration("Выучил!");
           setTimeout(() => {
-            setGraduatedAnim(false);
+            setCelebration(null);
             goNext();
           }, 700);
         } else {
@@ -427,7 +258,49 @@ export function SwipeFeed() {
         setBusy(false);
       }
     },
-    [currentCard, goNext, bumpSwipes, incrementCombo, resetCombo, animateCardExit, refreshSquad],
+    [currentCard, isChallenge, goNext, bumpSwipes, incrementCombo, resetCombo, animateCardExit],
+  );
+
+  const submitUsageChallenge = useCallback(
+    async (outcome: "applied" | "again") => {
+      if (!current || !isUsageChallengeItem(current) || busyRef.current) return;
+      busyRef.current = true;
+      setBusy(true);
+
+      const answerLatency = Date.now() - cardShownRef.current;
+      const comboAfter = outcome === "applied" ? incrementCombo() : null;
+      if (outcome === "again") resetCombo();
+      bumpSwipes(outcome === "applied");
+
+      void api
+        .submitUsageChallenge(
+          current.challenge.id,
+          outcome,
+          answerLatency,
+          comboAfter ?? undefined,
+        )
+        .then(() => api.getStats())
+        .then(setStats)
+        .catch(() => {});
+
+      try {
+        if (outcome === "applied") {
+          setCelebration("Применил!");
+          setActionNotice("Фраза в деле ✓");
+          setTimeout(() => {
+            setCelebration(null);
+            goNext();
+          }, 750);
+        } else {
+          setActionNotice("Вернёмся к этой фразе");
+          await animateCardExit();
+        }
+      } finally {
+        busyRef.current = false;
+        setBusy(false);
+      }
+    },
+    [current, goNext, bumpSwipes, incrementCombo, resetCombo, animateCardExit],
   );
 
   const handleRequestOverview = async () => {
@@ -466,6 +339,17 @@ export function SwipeFeed() {
       return <AdCard ad={item.ad} isFlipped={flipped} />;
     }
 
+    if (item.kind === "usage_challenge") {
+      return (
+        <UsageChallengeCard
+          card={item.card}
+          challenge={item.challenge}
+          onRespond={preview ? () => {} : submitUsageChallenge}
+          disabled={busy}
+        />
+      );
+    }
+
     return (
       <FlashCard
         card={item.card}
@@ -484,8 +368,11 @@ export function SwipeFeed() {
 
   if (loading) {
     return (
-      <div className="flex h-full items-center justify-center">
-        <div className="h-9 w-9 animate-spin rounded-full border-2 border-white/70 border-t-transparent" />
+      <div className="flex h-full flex-col items-center justify-center gap-3 px-6">
+        <div className="h-9 w-9 animate-spin rounded-full border-2 border-emerald-400/70 border-t-transparent" />
+        <p className="text-center text-sm font-medium text-zinc-400">
+          Собираем тренировку…
+        </p>
       </div>
     );
   }
@@ -506,19 +393,21 @@ export function SwipeFeed() {
   const hintText =
     current.kind === "ad"
       ? "Свайп вверх — пропустить · тап — детали"
-      : "Свайп вверх — знаю · тап — ответ";
+      : current.kind === "usage_challenge"
+        ? "Ответь вслух → «Я ответил — проверить»"
+        : "Свайп вверх — знаю · тап — ответ";
 
   return (
     <div className="relative flex h-full flex-col overflow-hidden touch-none" {...handlers}>
       <OfflineBanner isOnline={isOnline} pendingCount={pendingCount} />
       {actionNotice && (
-        <div className="shrink-0 border-b border-sky-500/20 bg-sky-500/10 px-4 py-2 text-center text-xs font-medium text-sky-200/90">
+        <div className="shrink-0 border-b border-emerald-500/20 bg-emerald-500/10 px-4 py-2 text-center text-xs font-medium text-emerald-200/90">
           {actionNotice}
         </div>
       )}
       {stats && (
         <div className="pointer-events-none shrink-0">
-          <SessionDigest stats={stats} combo={combo} matchdayCompact={matchdayCompact} />
+          <SessionDigest stats={stats} combo={combo} />
         </div>
       )}
 
@@ -526,8 +415,8 @@ export function SwipeFeed() {
         <div className="relative min-h-0 flex-1 px-4 pt-2">
           <motion.div
             key={current.id}
-            className="pointer-events-none absolute inset-0 z-10 select-none"
-            style={{ y, scale, opacity }}
+            className={`absolute inset-0 z-10 select-none ${isChallenge ? "pointer-events-auto" : "pointer-events-none"}`}
+            style={isChallenge ? undefined : { y, scale, opacity }}
           >
             {renderFeedItem(current, isFlipped)}
           </motion.div>
@@ -538,29 +427,21 @@ export function SwipeFeed() {
         </p>
       </div>
 
-      {graduatedAnim && (
+      {celebration && (
         <motion.div
           initial={{ opacity: 0, scale: 0.8 }}
           animate={{ opacity: 1, scale: 1 }}
           className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center bg-black/60"
         >
-          <div className="rounded-3xl bg-blue-700/90 px-8 py-6 text-center shadow-2xl">
-            <p className="text-4xl">🎉</p>
-            <p className="mt-2 text-xl font-bold text-white">Выучил!</p>
+          <div
+            className={`rounded-3xl px-8 py-6 text-center shadow-2xl ${
+              celebration === "Применил!" ? "bg-emerald-600/90" : "bg-blue-700/90"
+            }`}
+          >
+            <p className="text-4xl">{celebration === "Применил!" ? "🗣️" : "🎉"}</p>
+            <p className="mt-2 text-xl font-bold text-white">{celebration}</p>
           </div>
         </motion.div>
-      )}
-      {showMatchResult && matchday && (
-        <MatchResultOverlay
-          data={matchday}
-          squad={squad}
-          onClose={() => {
-            setShowMatchResult(false);
-          }}
-        />
-      )}
-      {pendingUnlocks.length > 0 && (
-        <PlayerUnlockOverlay players={pendingUnlocks} onDismiss={dismissUnlockOverlay} />
       )}
     </div>
   );

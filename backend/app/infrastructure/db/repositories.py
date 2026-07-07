@@ -1,4 +1,5 @@
 from datetime import date, datetime, timedelta, timezone
+import random
 
 from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -6,10 +7,19 @@ from sqlalchemy.orm import selectinload
 
 from app.domain.collection.players import build_collection
 from app.domain.entities.card import Card, CardState, ReviewRating
+from app.domain.services.usage_challenge_generator import fallback_usage_challenge
 from app.domain.services.fsrs_scheduler import FSRSScheduler
 from app.domain.services.session_builder import SessionBuilder, SessionCandidate
 from app.infrastructure.config.settings import settings
-from app.infrastructure.db.models import CardModel, ReviewModel, ScheduleModel, UserDailyStatsModel
+from app.infrastructure.db.models import (
+    CardModel,
+    ReviewModel,
+    ScheduleModel,
+    UsageChallengeAttemptModel,
+    UsageChallengeModel,
+    UserDailyStatsModel,
+)
+from app.infrastructure.llm.factory import get_usage_challenge_generator
 
 
 def _ensure_utc(dt: datetime) -> datetime:
@@ -196,6 +206,203 @@ class CardRepository:
         )
         return builder.build(candidates, new_today_count=new_today)
 
+    async def build_session_items(self) -> list[dict]:
+        """Session queue with usage challenges replacing review cards when stats are strong."""
+        candidates = await self.build_session()
+        if not candidates:
+            return []
+
+        card_ids = [c.card_id for c in candidates]
+        stats_map = await self._review_stats_for_cards(card_ids)
+
+        qualifying: list[SessionCandidate] = []
+        for candidate in candidates:
+            if candidate.state == CardState.GRADUATED:
+                continue
+            stats = stats_map.get(candidate.card_id)
+            if not stats:
+                continue
+            if self._qualifies_for_usage_challenge(candidate, stats):
+                qualifying.append(candidate)
+
+        random.shuffle(qualifying)
+        challenge_ids = {
+            c.card_id for c in qualifying[: settings.usage_challenge_max_per_session]
+        }
+
+        items: list[dict] = []
+        for candidate in candidates:
+            if candidate.card_id in challenge_ids:
+                challenge = await self.ensure_usage_challenge(candidate)
+                items.append(
+                    {"kind": "usage_challenge", "candidate": candidate, "challenge": challenge}
+                )
+            else:
+                items.append({"kind": "review", "candidate": candidate, "challenge": None})
+
+        # Usage challenges first — highest-value practice at session start
+        challenges = [i for i in items if i["kind"] == "usage_challenge"]
+        reviews = [i for i in items if i["kind"] == "review"]
+        interleaved: list[dict] = []
+        ci, ri = 0, 0
+        while ci < len(challenges) or ri < len(reviews):
+            if ci < len(challenges):
+                interleaved.append(challenges[ci])
+                ci += 1
+            if ri < len(reviews):
+                interleaved.append(reviews[ri])
+                ri += 1
+        return interleaved
+
+    async def _review_stats_for_cards(self, card_ids: list[int]) -> dict[int, dict[str, int | float]]:
+        if not card_ids:
+            return {}
+        result = await self._session.execute(
+            select(
+                ReviewModel.card_id,
+                func.count(ReviewModel.id).label("total"),
+                func.sum(
+                    case(
+                        (ReviewModel.rating.in_(["good", "graduated"]), 1),
+                        else_=0,
+                    )
+                ).label("known"),
+            )
+            .join(CardModel, ReviewModel.card_id == CardModel.id)
+            .where(
+                CardModel.user_id == self._user_id,
+                ReviewModel.card_id.in_(card_ids),
+            )
+            .group_by(ReviewModel.card_id)
+        )
+        stats: dict[int, dict[str, int | float]] = {}
+        for row in result.all():
+            total = int(row.total)
+            known = int(row.known or 0)
+            stats[int(row.card_id)] = {
+                "total": total,
+                "known": known,
+                "success_rate": round(known / total * 100, 1) if total else 0.0,
+            }
+        return stats
+
+    def _qualifies_for_usage_challenge(
+        self,
+        candidate: SessionCandidate,
+        stats: dict[str, int | float],
+    ) -> bool:
+        total = int(stats["total"])
+        if total < settings.usage_challenge_min_reviews:
+            return False
+        if float(stats["success_rate"]) < settings.usage_challenge_min_success_rate:
+            return False
+        if candidate.state == CardState.NEW:
+            return False
+        if candidate.lapses >= 3 and candidate.reps <= candidate.lapses:
+            return False
+        return True
+
+    async def ensure_usage_challenge(self, candidate: SessionCandidate) -> UsageChallengeModel:
+        today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+        existing = await self._session.execute(
+            select(UsageChallengeModel)
+            .where(
+                UsageChallengeModel.user_id == self._user_id,
+                UsageChallengeModel.card_id == candidate.card_id,
+                UsageChallengeModel.status == "ready",
+                UsageChallengeModel.created_at >= today_start,
+            )
+            .order_by(UsageChallengeModel.created_at.desc())
+            .limit(1)
+        )
+        row = existing.scalar_one_or_none()
+        if row:
+            return row
+
+        card = await self.get_by_id(candidate.card_id)
+        content = None
+        generator = get_usage_challenge_generator()
+        if generator:
+            try:
+                content = await generator.generate(
+                    candidate.english,
+                    candidate.translation,
+                    candidate.context,
+                    card.overview if card else None,
+                )
+            except Exception:
+                content = None
+        if content is None:
+            content = fallback_usage_challenge(
+                candidate.english,
+                candidate.translation,
+                candidate.context,
+            )
+
+        challenge = UsageChallengeModel(
+            user_id=self._user_id,
+            card_id=candidate.card_id,
+            target_phrase=candidate.english,
+            scenario_ru=content.scenario_ru,
+            hint_ru=content.hint_ru,
+            example_answer_en=content.example_answer_en,
+            status="ready",
+        )
+        self._session.add(challenge)
+        await self._session.commit()
+        await self._session.refresh(challenge)
+        return challenge
+
+    async def submit_usage_challenge(
+        self,
+        challenge_id: int,
+        *,
+        outcome: str,
+        answer_latency_ms: int | None = None,
+        combo_after: int | None = None,
+    ) -> tuple[UsageChallengeModel | None, CardModel | None]:
+        result = await self._session.execute(
+            select(UsageChallengeModel).where(
+                UsageChallengeModel.id == challenge_id,
+                UsageChallengeModel.user_id == self._user_id,
+            )
+        )
+        challenge = result.scalar_one_or_none()
+        if not challenge:
+            return None, None
+
+        attempt = UsageChallengeAttemptModel(
+            challenge_id=challenge.id,
+            card_id=challenge.card_id,
+            outcome=outcome,
+            answer_latency_ms=answer_latency_ms,
+        )
+        self._session.add(attempt)
+
+        rating = ReviewRating.GOOD if outcome == "applied" else ReviewRating.AGAIN
+        card = await self.submit_review(
+            challenge.card_id,
+            rating,
+            answer_latency_ms=answer_latency_ms,
+        )
+        if combo_after and outcome == "applied":
+            await self.record_combo(combo_after)
+
+        return challenge, card
+
+    async def count_applied_today(self) -> int:
+        today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+        result = await self._session.execute(
+            select(func.count(UsageChallengeAttemptModel.id))
+            .join(UsageChallengeModel, UsageChallengeAttemptModel.challenge_id == UsageChallengeModel.id)
+            .where(
+                UsageChallengeModel.user_id == self._user_id,
+                UsageChallengeAttemptModel.outcome == "applied",
+                UsageChallengeAttemptModel.created_at >= today_start,
+            )
+        )
+        return int(result.scalar_one() or 0)
+
     async def count_swipes_today(self) -> int:
         """Each review = one card passed (swipe or button)."""
         today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
@@ -213,6 +420,7 @@ class CardRepository:
         return {
             "swipes_today": await self.count_swipes_today(),
             "best_combo_today": await self.get_best_combo_today(),
+            "applied_today": await self.count_applied_today(),
         }
 
     async def get_best_combo_today(self) -> int:

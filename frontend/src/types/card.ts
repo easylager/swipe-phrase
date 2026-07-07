@@ -18,6 +18,23 @@ export interface Card {
 export interface Stats {
   swipes_today: number;
   best_combo_today?: number;
+  applied_today?: number;
+}
+
+export interface UsageChallenge {
+  id: number;
+  card_id: number;
+  target_phrase: string;
+  scenario: string;
+  hint: string | null;
+  example_answer: string | null;
+  status: string;
+}
+
+export interface SessionItem {
+  kind: "review" | "usage_challenge";
+  card: Card;
+  challenge: UsageChallenge | null;
 }
 
 export interface DailySwipeStat {
