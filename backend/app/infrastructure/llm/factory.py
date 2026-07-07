@@ -16,7 +16,7 @@ def get_overview_generator() -> OverviewGenerator | None:
         return GroqOverviewGenerator()
     if provider == "ollama":
         return OllamaOverviewGenerator()
-    raise ValueError(f"Unknown LLM provider: {provider")
+    raise ValueError(f"Unknown LLM provider: {provider}")
 
 
 def get_usage_challenge_generator() -> UsageChallengeGenerator | None:
