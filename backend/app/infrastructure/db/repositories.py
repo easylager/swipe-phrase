@@ -207,38 +207,54 @@ class CardRepository:
         return builder.build(candidates, new_today_count=new_today)
 
     async def build_session_items(self) -> list[dict]:
-        """Session queue with usage challenges replacing review cards when stats are strong."""
-        candidates = await self.build_session()
-        if not candidates:
+        """Session queue with usage challenges for well-known phrases across the full deck."""
+        all_candidates = await self.get_session_candidates()
+        session_candidates = await self.build_session()
+        if not session_candidates and not all_candidates:
             return []
 
-        card_ids = [c.card_id for c in candidates]
-        stats_map = await self._review_stats_for_cards(card_ids)
+        deck_ids = [c.card_id for c in all_candidates]
+        stats_map = await self._review_stats_for_cards(deck_ids)
 
         qualifying: list[SessionCandidate] = []
-        for candidate in candidates:
-            if candidate.state == CardState.GRADUATED:
-                continue
+        for candidate in all_candidates:
             stats = stats_map.get(candidate.card_id)
             if not stats:
                 continue
             if self._qualifies_for_usage_challenge(candidate, stats):
                 qualifying.append(candidate)
 
-        random.shuffle(qualifying)
-        challenge_ids = {
-            c.card_id for c in qualifying[: settings.usage_challenge_max_per_session]
-        }
+        # Prefer phrases the user already handles well
+        qualifying.sort(
+            key=lambda c: (
+                float(stats_map[c.card_id]["success_rate"]),
+                int(stats_map[c.card_id]["total"]),
+                c.reps,
+            ),
+            reverse=True,
+        )
+        top_pool = qualifying[: settings.usage_challenge_max_per_session * 3]
+        random.shuffle(top_pool)
+        challenge_candidates = top_pool[: settings.usage_challenge_max_per_session]
+        challenge_ids = {c.card_id for c in challenge_candidates}
+
+        review_candidates = [
+            c for c in session_candidates if c.card_id not in challenge_ids
+        ]
+        room = max(0, settings.session_size - len(challenge_candidates))
+        review_candidates = review_candidates[:room]
 
         items: list[dict] = []
-        for candidate in candidates:
-            if candidate.card_id in challenge_ids:
-                challenge = await self.ensure_usage_challenge(candidate)
-                items.append(
-                    {"kind": "usage_challenge", "candidate": candidate, "challenge": challenge}
-                )
-            else:
-                items.append({"kind": "review", "candidate": candidate, "challenge": None})
+        for candidate in challenge_candidates:
+            challenge = await self.ensure_usage_challenge(candidate)
+            items.append(
+                {"kind": "usage_challenge", "candidate": candidate, "challenge": challenge}
+            )
+        for candidate in review_candidates:
+            items.append({"kind": "review", "candidate": candidate, "challenge": None})
+
+        if not items:
+            return []
 
         # Usage challenges first — highest-value practice at session start
         challenges = [i for i in items if i["kind"] == "usage_challenge"]
@@ -292,15 +308,22 @@ class CardRepository:
         stats: dict[str, int | float],
     ) -> bool:
         total = int(stats["total"])
-        if total < settings.usage_challenge_min_reviews:
+        success_rate = float(stats["success_rate"])
+        if total < 1:
             return False
-        if float(stats["success_rate"]) < settings.usage_challenge_min_success_rate:
-            return False
-        if candidate.state == CardState.NEW:
+        if candidate.state in (CardState.NEW, CardState.GRADUATED):
             return False
         if candidate.lapses >= 3 and candidate.reps <= candidate.lapses:
             return False
-        return True
+
+        if total >= settings.usage_challenge_min_reviews and success_rate >= settings.usage_challenge_min_success_rate:
+            return True
+
+        # FSRS has seen the card a few times — still good for usage practice
+        if candidate.reps >= 2 and total >= 2 and success_rate >= 50.0:
+            return True
+
+        return False
 
     async def ensure_usage_challenge(self, candidate: SessionCandidate) -> UsageChallengeModel:
         today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)

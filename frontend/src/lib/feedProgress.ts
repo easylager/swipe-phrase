@@ -1,7 +1,7 @@
 import type { Stats } from "@/types/card";
 import type { FeedItem } from "@/types/feed";
 
-const PROGRESS_KEY = "phrase_feed_feed_progress";
+const PROGRESS_KEY = "phrase_feed_feed_progress_v2";
 const MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
 export interface FeedProgress {
