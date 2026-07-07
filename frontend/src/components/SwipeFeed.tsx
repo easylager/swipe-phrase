@@ -19,58 +19,6 @@ const CARD_EXIT_EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
 const CARD_EXIT_DURATION = 0.34;
 const CARD_SNOOZE_DURATION = 0.3;
 
-function MatchdayPanel({ data }: { data: MatchdayStats }) {
-  const progress = Math.min(100, Math.round((data.today_total / data.target_reviews) * 100));
-  const form = data.form_last5.map((d) => (d.completed ? "W" : "L")).join(" ");
-  const levelProgress = Math.min(
-    100,
-    Math.round((data.xp_in_level / Math.max(1, data.xp_to_next_level)) * 100),
-  );
-
-  return (
-    <div className="px-4 py-2">
-      <div className="rounded-2xl border border-white/10 bg-white/[0.05] p-3">
-        <div className="flex items-center justify-between gap-3">
-          <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-blue-200/90">
-            Matchday
-          </p>
-          <span className="rounded-full bg-blue-700/20 px-2.5 py-1 text-[11px] font-semibold text-blue-100">
-            Серия: {data.unbeaten_run}
-          </span>
-        </div>
-        <p className="mt-1 text-sm text-zinc-300">
-          Сегодня {data.today_known}/{data.today_total} знал · {data.today_accuracy}% точность
-        </p>
-        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/10">
-          <div
-            className="h-full rounded-full bg-gradient-to-r from-blue-700 to-red-500"
-            style={{ width: `${progress}%` }}
-          />
-        </div>
-        <p className="mt-2 text-[11px] text-zinc-500">
-          Цель: {data.target_reviews} карточек и {data.target_accuracy}%+ ·{" "}
-          {data.today_completed ? "Матч выигран" : "Матч в процессе"}
-        </p>
-        <div className="mt-2 flex items-center justify-between text-[11px] text-zinc-500">
-          <span>
-            Уровень {data.level} · XP {data.xp_total}
-          </span>
-          <span>
-            {data.xp_in_level}/{data.xp_to_next_level}
-          </span>
-        </div>
-        <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-white/10">
-          <div
-            className="h-full rounded-full bg-gradient-to-r from-blue-500 to-white"
-            style={{ width: `${levelProgress}%` }}
-          />
-        </div>
-        {form && <p className="mt-1 text-[11px] text-zinc-600">Форма (последние матчи): {form}</p>}
-      </div>
-    </div>
-  );
-}
-
 function MatchResultOverlay({
   data,
   onClose,
@@ -259,6 +207,9 @@ export function SwipeFeed() {
 
   const current = feed[index];
   const currentCard = current && isCardItem(current) ? current.card : null;
+  const matchdayCompact = matchday
+    ? `M ${matchday.today_total}/${matchday.target_reviews} · L${matchday.level}`
+    : null;
 
   const getLatencies = () => {
     const now = Date.now();
@@ -504,12 +455,7 @@ export function SwipeFeed() {
       )}
       {stats && (
         <div className="pointer-events-none shrink-0">
-          <SessionDigest stats={stats} combo={combo} />
-        </div>
-      )}
-      {matchday && (
-        <div className="pointer-events-none shrink-0">
-          <MatchdayPanel data={matchday} />
+          <SessionDigest stats={stats} combo={combo} matchdayCompact={matchdayCompact} />
         </div>
       )}
 
