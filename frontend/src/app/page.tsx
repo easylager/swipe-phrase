@@ -15,7 +15,7 @@ const SwipeFeed = dynamic(
     ssr: false,
     loading: () => (
       <div className="flex h-full items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-violet-400 border-t-transparent" />
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-blue-300 border-t-transparent" />
       </div>
     ),
   },
@@ -51,7 +51,7 @@ export default function Home() {
   if (isLoading) {
     return (
       <div className="flex h-[100dvh] items-center justify-center bg-zinc-950">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-violet-400 border-t-transparent" />
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-blue-300 border-t-transparent" />
       </div>
     );
   }
@@ -65,7 +65,7 @@ export default function Home() {
       <header className="relative z-20 shrink-0 px-4 pb-3 pt-3">
         <div className="glass-panel flex items-center justify-between rounded-[1.7rem] px-4 py-3">
           <div className="min-w-0">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-violet-300/80">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-blue-200/80">
               Phrase Feed
             </p>
             <h1 className="mt-0.5 truncate text-lg font-semibold tracking-tight text-white">
@@ -123,7 +123,7 @@ export default function Home() {
                   onClick={() => setTab(item)}
                   className={`tap-scale flex flex-1 items-center justify-center gap-2 rounded-[1.25rem] py-3 text-sm font-semibold ${
                     active
-                      ? "bg-white text-zinc-950 shadow-lg shadow-violet-500/15"
+                      ? "bg-white text-zinc-950 shadow-lg shadow-blue-900/30"
                       : "text-zinc-400 hover:bg-white/[0.06] hover:text-white"
                   }`}
                 >

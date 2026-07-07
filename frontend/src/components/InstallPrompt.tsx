@@ -22,7 +22,7 @@ function Step({
 }) {
   return (
     <li className="flex gap-3">
-      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-violet-600 text-sm font-bold text-white">
+      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-700 text-sm font-bold text-white">
         {number}
       </span>
       <div className="min-w-0 pt-0.5">
@@ -150,7 +150,7 @@ export function InstallPrompt() {
               <button
                 type="button"
                 onClick={() => void handleAndroidInstall()}
-                className="w-full rounded-2xl bg-violet-600 py-3.5 text-sm font-semibold text-white transition hover:bg-violet-500"
+                className="w-full rounded-2xl bg-blue-700 py-3.5 text-sm font-semibold text-white transition hover:bg-blue-600"
               >
                 Установить приложение
               </button>

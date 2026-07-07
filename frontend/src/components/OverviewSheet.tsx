@@ -15,7 +15,7 @@ interface OverviewSheetProps {
 
 function SectionTitle({ children }: { children: string }) {
   return (
-    <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-violet-400/90">
+    <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-blue-200/90">
       {children}
     </h3>
   );
@@ -49,7 +49,7 @@ function ListSection({ title, items }: { title: string; items: string[] }) {
       <ul className="space-y-2.5">
         {items.map((item, i) => (
           <li key={i} className="flex gap-2.5 text-sm leading-relaxed text-zinc-300">
-            <span className="mt-0.5 shrink-0 text-violet-400/70">—</span>
+            <span className="mt-0.5 shrink-0 text-blue-200/70">—</span>
             <span>{item}</span>
           </li>
         ))}
@@ -83,7 +83,7 @@ function SuggestionsSection({
   };
 
   return (
-    <section className="rounded-2xl border border-violet-500/20 bg-violet-500/5 p-4">
+    <section className="rounded-2xl border border-blue-500/20 bg-blue-500/8 p-4">
       <SectionTitle>Похожее в ленту</SectionTitle>
       <ul className="space-y-2">
         {items.map((item) => {
@@ -106,7 +106,7 @@ function SuggestionsSection({
                 className={`shrink-0 rounded-lg px-2.5 py-1.5 text-xs font-medium transition ${
                   isAdded
                     ? "bg-emerald-500/15 text-emerald-400"
-                    : "bg-violet-600/80 text-white hover:bg-violet-500 disabled:opacity-60"
+                    : "bg-blue-700/80 text-white hover:bg-blue-600 disabled:opacity-60"
                 }`}
               >
                 {isAdded ? "✓" : isLoading ? "…" : "+ лента"}
@@ -156,7 +156,7 @@ export function OverviewSheet({
       >
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
-            <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-violet-300/80">
+            <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-blue-200/80">
               Обзор
             </p>
             <p className="mt-1 text-xl font-black tracking-tight text-white">{english}</p>
@@ -172,7 +172,7 @@ export function OverviewSheet({
 
         {status === "generating" || status === "idle" || status === "pending" ? (
           <div className="flex items-center gap-3 py-8 text-zinc-400">
-            <div className="h-5 w-5 animate-spin rounded-full border-2 border-violet-400 border-t-transparent" />
+            <div className="h-5 w-5 animate-spin rounded-full border-2 border-blue-300 border-t-transparent" />
             <span className="text-sm">Нейросеть пишет обзор...</span>
           </div>
         ) : status === "failed" ? (

@@ -1,4 +1,14 @@
-import type { Card, CreateCardPayload, DailyStats, ReviewRating, SnoozeDays, Stats, UpdateCardPayload } from "@/types/card";
+import type {
+  Card,
+  CreateCardPayload,
+  DailyStats,
+  MatchdayStats,
+  ReviewRating,
+  SnoozeDays,
+  Stats,
+  UpdateCardPayload,
+  VocabularyStats,
+} from "@/types/card";
 import type { AuthResponse, User } from "@/types/user";
 import { getToken } from "@/lib/auth";
 import {
@@ -257,7 +267,9 @@ export const api = {
     if (session) cacheSessionAndStats(session, stats);
     return stats;
   },
+  getMatchdayStats: () => request<MatchdayStats>("/api/stats/matchday"),
   getDailyStats: (days = 14) => request<DailyStats>(`/api/stats/daily?days=${days}`),
+  getVocabularyStats: () => request<VocabularyStats>("/api/stats/vocabulary"),
   listCards: () => request<Card[]>("/api/cards"),
   createCard: (payload: CreateCardPayload) =>
     request<Card>("/api/cards", {

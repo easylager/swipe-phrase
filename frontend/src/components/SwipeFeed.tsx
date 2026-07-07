@@ -1,11 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { animate, motion, useTransform } from "framer-motion";
+import { animate, motion } from "framer-motion";
 import { api } from "@/lib/api";
 import { buildFeedQueue, isCardItem } from "@/lib/feedQueue";
 import { clearFeedProgress, getFeedProgress, saveFeedProgress } from "@/lib/feedProgress";
-import type { Card, Stats } from "@/types/card";
+import type { Card, MatchdayStats, Stats } from "@/types/card";
 import type { FeedItem } from "@/types/feed";
 import { AdCard } from "@/components/AdCard";
 import { FlashCard } from "@/components/FlashCard";
@@ -19,6 +19,123 @@ const CARD_EXIT_EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
 const CARD_EXIT_DURATION = 0.34;
 const CARD_SNOOZE_DURATION = 0.3;
 
+function MatchdayPanel({ data }: { data: MatchdayStats }) {
+  const progress = Math.min(100, Math.round((data.today_total / data.target_reviews) * 100));
+  const form = data.form_last5.map((d) => (d.completed ? "W" : "L")).join(" ");
+  const levelProgress = Math.min(
+    100,
+    Math.round((data.xp_in_level / Math.max(1, data.xp_to_next_level)) * 100),
+  );
+
+  return (
+    <div className="px-4 py-2">
+      <div className="rounded-2xl border border-white/10 bg-white/[0.05] p-3">
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-blue-200/90">
+            Matchday
+          </p>
+          <span className="rounded-full bg-blue-700/20 px-2.5 py-1 text-[11px] font-semibold text-blue-100">
+            Серия: {data.unbeaten_run}
+          </span>
+        </div>
+        <p className="mt-1 text-sm text-zinc-300">
+          Сегодня {data.today_known}/{data.today_total} знал · {data.today_accuracy}% точность
+        </p>
+        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/10">
+          <div
+            className="h-full rounded-full bg-gradient-to-r from-blue-700 to-red-500"
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+        <p className="mt-2 text-[11px] text-zinc-500">
+          Цель: {data.target_reviews} карточек и {data.target_accuracy}%+ ·{" "}
+          {data.today_completed ? "Матч выигран" : "Матч в процессе"}
+        </p>
+        <div className="mt-2 flex items-center justify-between text-[11px] text-zinc-500">
+          <span>
+            Уровень {data.level} · XP {data.xp_total}
+          </span>
+          <span>
+            {data.xp_in_level}/{data.xp_to_next_level}
+          </span>
+        </div>
+        <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-white/10">
+          <div
+            className="h-full rounded-full bg-gradient-to-r from-blue-500 to-white"
+            style={{ width: `${levelProgress}%` }}
+          />
+        </div>
+        {form && <p className="mt-1 text-[11px] text-zinc-600">Форма (последние матчи): {form}</p>}
+      </div>
+    </div>
+  );
+}
+
+function MatchResultOverlay({
+  data,
+  onClose,
+}: {
+  data: MatchdayStats;
+  onClose: () => void;
+}) {
+  const result = data.today_result;
+  if (!result) return null;
+
+  const title =
+    result === "win" ? "Победа" : result === "draw" ? "Ничья" : "Поражение";
+  const subtitle =
+    result === "win"
+      ? "Цель дня выполнена"
+      : result === "draw"
+        ? "Почти дожал — завтра добьем"
+        : "Сегодня защита просела, нужен камбэк";
+  const tone =
+    result === "win"
+      ? "from-blue-700/80 to-red-500/80"
+      : result === "draw"
+        ? "from-zinc-700/80 to-blue-700/70"
+        : "from-red-700/80 to-zinc-700/80";
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 px-4 pb-6 backdrop-blur-sm sm:items-center"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-md rounded-3xl border border-white/10 bg-zinc-900/95 p-5 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className={`rounded-2xl bg-gradient-to-r ${tone} p-4`}>
+          <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-white/80">Match result</p>
+          <p className="mt-1 text-2xl font-black text-white">{title}</p>
+          <p className="mt-1 text-sm text-white/90">{subtitle}</p>
+        </div>
+        <div className="mt-4 space-y-2 text-sm text-zinc-300">
+          <p>
+            Точность: <span className="font-semibold text-white">{data.today_accuracy}%</span>
+          </p>
+          <p>
+            Level {data.level} · XP {data.xp_total}
+          </p>
+          {data.mvp_word && (
+            <p className="text-zinc-200">
+              MVP слова дня: <span className="font-semibold">{data.mvp_word.english}</span>{" "}
+              (+{data.mvp_word.delta_accuracy}%)
+            </p>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          className="tap-scale mt-4 w-full rounded-2xl bg-white py-3 text-sm font-black text-zinc-950"
+        >
+          Вперед
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function SwipeFeed() {
   const { isOnline, pendingCount } = useOfflineStatus();
   const [feed, setFeed] = useState<FeedItem[]>([]);
@@ -27,6 +144,8 @@ export function SwipeFeed() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [stats, setStats] = useState<Stats | null>(null);
+  const [matchday, setMatchday] = useState<MatchdayStats | null>(null);
+  const [showMatchResult, setShowMatchResult] = useState(false);
   const [graduatedAnim, setGraduatedAnim] = useState(false);
   const [combo, setCombo] = useState(0);
   const [actionNotice, setActionNotice] = useState<string | null>(null);
@@ -35,6 +154,17 @@ export function SwipeFeed() {
   const cardShownRef = useRef(0);
   const busyRef = useRef(false);
   const comboRef = useRef(0);
+  const previousTodayTotalRef = useRef(0);
+
+  const wasMatchResultSeen = useCallback((date: string): boolean => {
+    if (typeof window === "undefined") return false;
+    return localStorage.getItem(`phrase_feed_match_result_seen_${date}`) === "1";
+  }, []);
+
+  const markMatchResultSeen = useCallback((date: string): void => {
+    if (typeof window === "undefined") return;
+    localStorage.setItem(`phrase_feed_match_result_seen_${date}`, "1");
+  }, []);
 
   const resetCombo = useCallback(() => {
     comboRef.current = 0;
@@ -51,9 +181,15 @@ export function SwipeFeed() {
     setLoading(true);
     clearFeedProgress();
     try {
-      const [session, statsData] = await Promise.all([api.getSession(), api.getStats()]);
+      const [session, statsData, matchdayData] = await Promise.all([
+        api.getSession(),
+        api.getStats(),
+        api.getMatchdayStats(),
+      ]);
       setFeed(buildFeedQueue(session));
       setStats(statsData);
+      setMatchday(matchdayData);
+      previousTodayTotalRef.current = matchdayData.today_total;
       setIndex(0);
       setIsFlipped(false);
       cardShownRef.current = Date.now();
@@ -77,6 +213,13 @@ export function SwipeFeed() {
       setLoading(false);
       cardShownRef.current = Date.now();
       void api.getStats().then(setStats).catch(() => {});
+      void api
+        .getMatchdayStats()
+        .then((data) => {
+          previousTodayTotalRef.current = data.today_total;
+          setMatchday(data);
+        })
+        .catch(() => {});
       return;
     }
     void loadSession();
@@ -93,6 +236,18 @@ export function SwipeFeed() {
     return () => clearTimeout(timer);
   }, [actionNotice]);
 
+  useEffect(() => {
+    if (!matchday || !matchday.today_result) return;
+    const reachedGoalNow =
+      previousTodayTotalRef.current < matchday.target_reviews &&
+      matchday.today_total >= matchday.target_reviews;
+    previousTodayTotalRef.current = matchday.today_total;
+    if (!reachedGoalNow) return;
+    if (wasMatchResultSeen(matchday.date)) return;
+    setShowMatchResult(true);
+    markMatchResultSeen(matchday.date);
+  }, [matchday, markMatchResultSeen, wasMatchResultSeen]);
+
   const updateCardInFeed = useCallback((updated: Card) => {
     setFeed((prev) =>
       prev.map((item) => {
@@ -103,7 +258,6 @@ export function SwipeFeed() {
   }, []);
 
   const current = feed[index];
-  const next = feed[index + 1];
   const currentCard = current && isCardItem(current) ? current.card : null;
 
   const getLatencies = () => {
@@ -148,8 +302,11 @@ export function SwipeFeed() {
 
       void api
         .submitReview(card.id, "good", flipLatency, answerLatency, comboAfter)
-        .then(() => api.getStats())
-        .then(setStats)
+        .then(() => Promise.all([api.getStats(), api.getMatchdayStats()]))
+        .then(([statsData, matchdayData]) => {
+          setStats(statsData);
+          setMatchday(matchdayData);
+        })
         .catch(() => {});
     },
     [goNext, bumpSwipes, incrementCombo],
@@ -177,8 +334,6 @@ export function SwipeFeed() {
     disabled: busy,
   });
 
-  const nextScale = useTransform(y, [-360, 0], [1, 0.94]);
-  const nextOpacity = useTransform(y, [-360, 0], [1, 0.38]);
 
   const animateCardExit = useCallback(async () => {
     await animate(y, -window.innerHeight, {
@@ -236,8 +391,11 @@ export function SwipeFeed() {
 
       void api
         .submitReview(card.id, rating, flipLatency, answerLatency, comboAfter ?? undefined)
-        .then(() => api.getStats())
-        .then(setStats)
+        .then(() => Promise.all([api.getStats(), api.getMatchdayStats()]))
+        .then(([statsData, matchdayData]) => {
+          setStats(statsData);
+          setMatchday(matchdayData);
+        })
         .catch(() => {});
 
       try {
@@ -349,18 +507,14 @@ export function SwipeFeed() {
           <SessionDigest stats={stats} combo={combo} />
         </div>
       )}
+      {matchday && (
+        <div className="pointer-events-none shrink-0">
+          <MatchdayPanel data={matchday} />
+        </div>
+      )}
 
       <div className="relative flex min-h-0 flex-1 flex-col">
         <div className="relative min-h-0 flex-1 px-4 pt-2">
-          {next && (
-            <motion.div
-              className="pointer-events-none absolute inset-0 z-0"
-              style={{ scale: nextScale, opacity: nextOpacity }}
-            >
-              {renderFeedItem(next, false, true)}
-            </motion.div>
-          )}
-
           <motion.div
             key={current.id}
             className="pointer-events-none absolute inset-0 z-10 select-none"
@@ -381,11 +535,19 @@ export function SwipeFeed() {
           animate={{ opacity: 1, scale: 1 }}
           className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center bg-black/60"
         >
-          <div className="rounded-3xl bg-violet-600/90 px-8 py-6 text-center shadow-2xl">
+          <div className="rounded-3xl bg-blue-700/90 px-8 py-6 text-center shadow-2xl">
             <p className="text-4xl">🎉</p>
             <p className="mt-2 text-xl font-bold text-white">Выучил!</p>
           </div>
         </motion.div>
+      )}
+      {showMatchResult && matchday && (
+        <MatchResultOverlay
+          data={matchday}
+          onClose={() => {
+            setShowMatchResult(false);
+          }}
+        />
       )}
     </div>
   );

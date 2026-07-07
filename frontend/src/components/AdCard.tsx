@@ -10,11 +10,11 @@ interface AdCardProps {
 
 const accentStyles = {
   violet: {
-    border: "border-violet-400/25",
-    glow: "from-violet-600/30 via-fuchsia-600/10 to-transparent",
-    badge: "bg-violet-500/20 text-violet-200",
-    cta: "bg-violet-500/20 text-violet-200 ring-violet-400/30",
-    bullet: "text-violet-300/80",
+    border: "border-blue-400/25",
+    glow: "from-blue-700/30 via-red-700/10 to-transparent",
+    badge: "bg-blue-600/20 text-blue-100",
+    cta: "bg-blue-600/20 text-blue-100 ring-blue-300/30",
+    bullet: "text-blue-200/80",
   },
   amber: {
     border: "border-amber-400/25",

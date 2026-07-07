@@ -82,3 +82,58 @@ class DailySwipeStat(BaseModel):
 class DailyStatsResponse(BaseModel):
     days: list[DailySwipeStat]
     total: int
+
+
+class VocabularyItemResponse(BaseModel):
+    id: int
+    english: str
+    translation: str
+    cluster: str | None
+    state: str
+    known_count: int
+    total_count: int
+    success_rate: float | None = None
+    lapses: int = 0
+
+
+class VocabularyStatsResponse(BaseModel):
+    total_words: int
+    with_stats: int
+    without_stats: int
+    items: list[VocabularyItemResponse]
+
+
+class MatchdayDayResult(BaseModel):
+    date: str
+    total: int
+    known: int
+    accuracy: float
+    completed: bool
+
+
+class MatchdayMvpWord(BaseModel):
+    card_id: int
+    english: str
+    delta_accuracy: float
+    today_accuracy: float
+    previous_accuracy: float
+
+
+class MatchdayStatsResponse(BaseModel):
+    date: str
+    target_reviews: int
+    target_accuracy: float
+    today_total: int
+    today_known: int
+    today_accuracy: float
+    today_completed: bool
+    today_result: str | None = None
+    unbeaten_run: int
+    form_last5: list[MatchdayDayResult]
+    xp_total: int
+    level: int
+    xp_in_level: int
+    xp_to_next_level: int
+    season_progress: float
+    season_name: str
+    mvp_word: MatchdayMvpWord | None = None

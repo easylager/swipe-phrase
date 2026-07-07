@@ -36,15 +36,15 @@ export function AuthScreen() {
       <div className="mb-8 text-center">
         <div
           aria-hidden="true"
-          className="mx-auto mb-5 h-16 w-16 rounded-[1.45rem] bg-[url('/apple-touch-icon.png')] bg-cover bg-center shadow-2xl shadow-violet-500/20"
+          className="mx-auto mb-5 h-16 w-16 rounded-[1.45rem] bg-[url('/apple-touch-icon.png')] bg-cover bg-center shadow-2xl shadow-blue-900/25"
         />
-        <p className="text-[11px] font-bold uppercase tracking-[0.28em] text-violet-300/80">
+        <p className="text-[11px] font-bold uppercase tracking-[0.28em] text-blue-200/80">
           Phrase Feed
         </p>
         <h1 className="mt-2 text-3xl font-black tracking-tight text-white">Твои фразы</h1>
         <p className="mt-2 text-sm text-zinc-400">Личная лента для английского без лишнего шума</p>
         {isStandalonePwa() && (
-          <p className="mt-4 rounded-2xl border border-violet-300/15 bg-violet-500/10 px-4 py-3 text-xs leading-relaxed text-violet-100/90">
+          <p className="mt-4 rounded-2xl border border-blue-300/20 bg-blue-600/10 px-4 py-3 text-xs leading-relaxed text-blue-100/90">
             Открыто с иконки на экране — войди здесь один раз. Это отдельное приложение от Safari,
             логин из браузера сюда не переносится.
           </p>
@@ -83,7 +83,7 @@ export function AuthScreen() {
             autoComplete="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="w-full rounded-[1.25rem] border border-white/10 bg-white/[0.055] px-4 py-4 text-white outline-none transition focus:border-violet-300/40 focus:ring-4 focus:ring-violet-500/10"
+            className="w-full rounded-[1.25rem] border border-white/10 bg-white/[0.055] px-4 py-4 text-white outline-none transition focus:border-blue-300/40 focus:ring-4 focus:ring-blue-500/10"
           />
         </label>
 
@@ -98,7 +98,7 @@ export function AuthScreen() {
             autoComplete={mode === "login" ? "current-password" : "new-password"}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-full rounded-[1.25rem] border border-white/10 bg-white/[0.055] px-4 py-4 text-white outline-none transition focus:border-violet-300/40 focus:ring-4 focus:ring-violet-500/10"
+            className="w-full rounded-[1.25rem] border border-white/10 bg-white/[0.055] px-4 py-4 text-white outline-none transition focus:border-blue-300/40 focus:ring-4 focus:ring-blue-500/10"
           />
           {mode === "register" && (
             <span className="mt-1.5 block text-xs text-zinc-600">Минимум 8 символов</span>
@@ -114,7 +114,7 @@ export function AuthScreen() {
         <button
           type="submit"
           disabled={busy}
-          className="tap-scale w-full rounded-[1.25rem] bg-white py-4 text-sm font-black text-zinc-950 shadow-xl shadow-violet-500/15 disabled:opacity-50"
+          className="tap-scale w-full rounded-[1.25rem] bg-white py-4 text-sm font-black text-zinc-950 shadow-xl shadow-blue-900/25 disabled:opacity-50"
         >
           {busy ? "..." : mode === "login" ? "Войти" : "Создать аккаунт"}
         </button>

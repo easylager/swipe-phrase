@@ -1,6 +1,6 @@
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 
-from sqlalchemy import func, select
+from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -283,6 +283,321 @@ class CardRepository:
             series.append({"date": key, "count": count})
 
         return {"days": series, "total": total}
+
+    async def get_vocabulary_stats(self) -> dict:
+        """Per-card swipe success stats, worst-first then no-stats at bottom."""
+        cards = await self.list_all()
+
+        result = await self._session.execute(
+            select(
+                ReviewModel.card_id,
+                func.count(ReviewModel.id).label("total"),
+                func.sum(
+                    case(
+                        (ReviewModel.rating.in_(["good", "graduated"]), 1),
+                        else_=0,
+                    )
+                ).label("known"),
+            )
+            .join(CardModel, ReviewModel.card_id == CardModel.id)
+            .where(CardModel.user_id == self._user_id)
+            .group_by(ReviewModel.card_id)
+        )
+
+        review_stats: dict[int, dict[str, int]] = {}
+        for row in result.all():
+            review_stats[row.card_id] = {
+                "total": int(row.total),
+                "known": int(row.known or 0),
+            }
+
+        items: list[dict] = []
+        for card in cards:
+            stats = review_stats.get(card.id, {"total": 0, "known": 0})
+            total = stats["total"]
+            known = stats["known"]
+            success_rate = round(known / total * 100, 1) if total > 0 else None
+            schedule = card.schedule
+            items.append(
+                {
+                    "id": card.id,
+                    "english": card.english,
+                    "translation": card.translation,
+                    "cluster": card.cluster,
+                    "state": schedule.state if schedule else "new",
+                    "known_count": known,
+                    "total_count": total,
+                    "success_rate": success_rate,
+                    "lapses": schedule.lapses if schedule else 0,
+                }
+            )
+
+        with_stats = [item for item in items if item["total_count"] > 0]
+        without_stats = [item for item in items if item["total_count"] == 0]
+
+        with_stats.sort(
+            key=lambda item: (
+                item["success_rate"] or 0,
+                -item["lapses"],
+                -item["total_count"],
+                item["english"].lower(),
+            )
+        )
+        without_stats.sort(key=lambda item: item["english"].lower())
+
+        sorted_items = with_stats + without_stats
+        return {
+            "total_words": len(sorted_items),
+            "with_stats": len(with_stats),
+            "without_stats": len(without_stats),
+            "items": sorted_items,
+        }
+
+    async def _daily_review_outcomes(self, *, days: int) -> list[dict]:
+        """Return per-day totals and known counts for the user."""
+        days = max(1, min(days, 120))
+        today = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+        start = today - timedelta(days=days - 1)
+
+        result = await self._session.execute(
+            select(
+                func.date(ReviewModel.reviewed_at).label("day"),
+                func.count(ReviewModel.id).label("total"),
+                func.sum(
+                    case(
+                        (ReviewModel.rating.in_(["good", "graduated"]), 1),
+                        else_=0,
+                    )
+                ).label("known"),
+            )
+            .join(CardModel, ReviewModel.card_id == CardModel.id)
+            .where(
+                CardModel.user_id == self._user_id,
+                ReviewModel.reviewed_at >= start,
+            )
+            .group_by(func.date(ReviewModel.reviewed_at))
+            .order_by(func.date(ReviewModel.reviewed_at))
+        )
+
+        by_day = {
+            str(row.day): {"total": int(row.total), "known": int(row.known or 0)}
+            for row in result.all()
+        }
+
+        series: list[dict] = []
+        for offset in range(days):
+            d = (start + timedelta(days=offset)).date()
+            key = d.isoformat()
+            stats = by_day.get(key, {"total": 0, "known": 0})
+            total = stats["total"]
+            known = stats["known"]
+            accuracy = round((known / total * 100) if total else 0.0, 1)
+            series.append(
+                {
+                    "date": key,
+                    "total": total,
+                    "known": known,
+                    "accuracy": accuracy,
+                }
+            )
+        return series
+
+    @staticmethod
+    def _level_from_xp(xp_total: int) -> dict[str, int]:
+        level = 1
+        remaining = max(0, xp_total)
+        threshold = 120
+        while remaining >= threshold:
+            remaining -= threshold
+            level += 1
+            threshold = int(threshold * 1.18)
+        return {
+            "level": level,
+            "xp_in_level": remaining,
+            "xp_to_next_level": max(1, threshold),
+        }
+
+    async def _get_mvp_word(self, *, start: datetime) -> dict | None:
+        today_rows = await self._session.execute(
+            select(
+                ReviewModel.card_id,
+                func.count(ReviewModel.id).label("total"),
+                func.sum(
+                    case(
+                        (ReviewModel.rating.in_(["good", "graduated"]), 1),
+                        else_=0,
+                    )
+                ).label("known"),
+            )
+            .join(CardModel, ReviewModel.card_id == CardModel.id)
+            .where(
+                CardModel.user_id == self._user_id,
+                ReviewModel.reviewed_at >= start,
+            )
+            .group_by(ReviewModel.card_id)
+        )
+        today_stats = {
+            int(row.card_id): {"total": int(row.total), "known": int(row.known or 0)}
+            for row in today_rows.all()
+            if int(row.total) > 0
+        }
+        if not today_stats:
+            return None
+
+        previous_rows = await self._session.execute(
+            select(
+                ReviewModel.card_id,
+                func.count(ReviewModel.id).label("total"),
+                func.sum(
+                    case(
+                        (ReviewModel.rating.in_(["good", "graduated"]), 1),
+                        else_=0,
+                    )
+                ).label("known"),
+            )
+            .join(CardModel, ReviewModel.card_id == CardModel.id)
+            .where(
+                CardModel.user_id == self._user_id,
+                ReviewModel.reviewed_at < start,
+                ReviewModel.card_id.in_(list(today_stats.keys())),
+            )
+            .group_by(ReviewModel.card_id)
+        )
+        previous_stats = {
+            int(row.card_id): {"total": int(row.total), "known": int(row.known or 0)}
+            for row in previous_rows.all()
+        }
+
+        card_rows = await self._session.execute(
+            select(CardModel.id, CardModel.english).where(
+                CardModel.user_id == self._user_id,
+                CardModel.id.in_(list(today_stats.keys())),
+            )
+        )
+        card_names = {int(row.id): row.english for row in card_rows.all()}
+
+        scored: list[dict] = []
+        for card_id, stats in today_stats.items():
+            total_today = stats["total"]
+            known_today = stats["known"]
+            today_accuracy = (known_today / total_today) * 100 if total_today else 0.0
+            previous = previous_stats.get(card_id, {"total": 0, "known": 0})
+            prev_total = previous["total"]
+            prev_accuracy = (previous["known"] / prev_total) * 100 if prev_total else 0.0
+            delta = today_accuracy - prev_accuracy
+            scored.append(
+                {
+                    "card_id": card_id,
+                    "english": card_names.get(card_id, ""),
+                    "delta_accuracy": round(delta, 1),
+                    "today_accuracy": round(today_accuracy, 1),
+                    "previous_accuracy": round(prev_accuracy, 1),
+                    "total_today": total_today,
+                }
+            )
+
+        scored.sort(
+            key=lambda row: (
+                row["delta_accuracy"],
+                row["today_accuracy"],
+                row["total_today"],
+            ),
+            reverse=True,
+        )
+        best = scored[0]
+        return {
+            "card_id": best["card_id"],
+            "english": best["english"],
+            "delta_accuracy": best["delta_accuracy"],
+            "today_accuracy": best["today_accuracy"],
+            "previous_accuracy": best["previous_accuracy"],
+        }
+
+    async def get_matchday_stats(self) -> dict:
+        target_reviews = max(1, settings.matchday_target_reviews)
+        target_accuracy = max(1.0, min(100.0, settings.matchday_target_accuracy))
+
+        # 35 days gives enough history for streak + form.
+        daily = await self._daily_review_outcomes(days=35)
+        today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+        if not daily:
+            today_data = {"date": date.today().isoformat(), "total": 0, "known": 0, "accuracy": 0.0}
+            form_last5 = []
+            unbeaten_run = 0
+        else:
+            today_data = daily[-1]
+            for item in daily:
+                item["completed"] = (
+                    item["total"] >= target_reviews and item["accuracy"] >= target_accuracy
+                )
+
+            unbeaten_run = 0
+            for item in reversed(daily):
+                if item["completed"]:
+                    unbeaten_run += 1
+                elif item["total"] > 0:
+                    break
+                else:
+                    # skip empty days; they neither continue nor break the run
+                    continue
+
+            played_days = [item for item in daily if item["total"] > 0]
+            form_last5 = played_days[-5:]
+
+        today_completed = (
+            today_data["total"] >= target_reviews and today_data["accuracy"] >= target_accuracy
+        )
+        if today_data["total"] < target_reviews:
+            today_result = None
+        elif today_completed:
+            today_result = "win"
+        elif today_data["accuracy"] >= max(1.0, target_accuracy - 10):
+            today_result = "draw"
+        else:
+            today_result = "loss"
+
+        totals = await self._session.execute(
+            select(
+                func.count(ReviewModel.id).label("total"),
+                func.sum(
+                    case(
+                        (ReviewModel.rating.in_(["good", "graduated"]), 1),
+                        else_=0,
+                    )
+                ).label("known"),
+            )
+            .join(CardModel, ReviewModel.card_id == CardModel.id)
+            .where(CardModel.user_id == self._user_id)
+        )
+        totals_row = totals.one()
+        total_reviews = int(totals_row.total or 0)
+        known_reviews = int(totals_row.known or 0)
+        xp_total = known_reviews * 12 + total_reviews * 3 + unbeaten_run * 20
+        level_data = self._level_from_xp(xp_total)
+
+        season_size = 5000
+        season_progress = round(((xp_total % season_size) / season_size) * 100, 1)
+        mvp_word = await self._get_mvp_word(start=today_start)
+
+        return {
+            "date": today_data["date"],
+            "target_reviews": target_reviews,
+            "target_accuracy": float(round(target_accuracy, 1)),
+            "today_total": int(today_data["total"]),
+            "today_known": int(today_data["known"]),
+            "today_accuracy": float(today_data["accuracy"]),
+            "today_completed": bool(today_completed),
+            "today_result": today_result,
+            "unbeaten_run": int(unbeaten_run),
+            "form_last5": form_last5,
+            "xp_total": int(xp_total),
+            "level": level_data["level"],
+            "xp_in_level": level_data["xp_in_level"],
+            "xp_to_next_level": level_data["xp_to_next_level"],
+            "season_progress": season_progress,
+            "season_name": "Road to Wembley",
+            "mvp_word": mvp_word,
+        }
 
     async def get_stats_full(self) -> dict:
         """Internal metrics for session builder — not exposed in UI."""

@@ -23,7 +23,7 @@ export function CardEditSheet({ card, onClose, onSave }: CardEditSheetProps) {
   const [error, setError] = useState<string | null>(null);
 
   const inputClass =
-    "w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder-zinc-500 outline-none transition focus:border-violet-400/50 focus:ring-1 focus:ring-violet-400/30";
+    "w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder-zinc-500 outline-none transition focus:border-blue-300/50 focus:ring-1 focus:ring-blue-300/30";
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -57,7 +57,7 @@ export function CardEditSheet({ card, onClose, onSave }: CardEditSheetProps) {
       >
         <div className="mb-5 flex items-start justify-between gap-3">
           <div>
-            <p className="text-xs font-medium uppercase tracking-wider text-violet-400">
+            <p className="text-xs font-medium uppercase tracking-wider text-blue-200/90">
               Редактировать
             </p>
             <p className="mt-1 text-sm text-zinc-400">Исправь опечатку — обзор обновится сам</p>
@@ -116,7 +116,7 @@ export function CardEditSheet({ card, onClose, onSave }: CardEditSheetProps) {
         <button
           type="submit"
           disabled={loading}
-          className="mt-6 w-full rounded-2xl bg-violet-600 py-3.5 text-sm font-semibold text-white transition hover:bg-violet-500 disabled:opacity-50"
+          className="mt-6 w-full rounded-2xl bg-blue-700 py-3.5 text-sm font-semibold text-white transition hover:bg-blue-600 disabled:opacity-50"
         >
           {loading ? "Сохраняю..." : "Сохранить"}
         </button>

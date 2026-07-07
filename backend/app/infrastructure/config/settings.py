@@ -23,6 +23,8 @@ class Settings(BaseSettings):
 
     daily_new_limit: int = 20
     session_size: int = 30
+    matchday_target_reviews: int = 25
+    matchday_target_accuracy: float = 65.0
 
     # LLM overview: ollama (local dev) | groq (cloud, Railway) | none
     llm_provider: str = "ollama"

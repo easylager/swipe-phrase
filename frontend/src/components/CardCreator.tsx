@@ -63,7 +63,7 @@ export function CardCreator({ onCreated }: CardCreatorProps) {
   };
 
   const fieldClass =
-    "w-full rounded-[1.35rem] border border-white/10 bg-white/[0.055] px-4 py-4 text-[17px] text-white placeholder-zinc-600 outline-none shadow-inner shadow-black/10 transition focus:border-violet-300/40 focus:bg-white/[0.08] focus:ring-4 focus:ring-violet-500/10";
+    "w-full rounded-[1.35rem] border border-white/10 bg-white/[0.055] px-4 py-4 text-[17px] text-white placeholder-zinc-600 outline-none shadow-inner shadow-black/10 transition focus:border-blue-300/40 focus:bg-white/[0.08] focus:ring-4 focus:ring-blue-500/10";
 
   return (
     <form
@@ -73,7 +73,7 @@ export function CardCreator({ onCreated }: CardCreatorProps) {
       className="flex min-h-full flex-col px-4 pb-5 pt-2"
     >
       <div className="glass-panel mb-4 rounded-[1.8rem] px-5 py-4">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-violet-300/80">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-blue-200/80">
           Быстрый захват
         </p>
         <h2 className="mt-1 text-2xl font-bold tracking-tight text-white">Новая фраза</h2>
@@ -152,7 +152,7 @@ export function CardCreator({ onCreated }: CardCreatorProps) {
                 onClick={() => setTag((prev) => (prev === t ? null : t))}
                 className={`tap-scale rounded-full border px-3.5 py-2 text-sm font-semibold ${
                   tag === t
-                    ? "border-violet-300/30 bg-white text-zinc-950 shadow-lg shadow-violet-500/10"
+                    ? "border-blue-300/30 bg-white text-zinc-950 shadow-lg shadow-blue-900/25"
                     : "border-white/10 bg-white/[0.045] text-zinc-400 hover:bg-white/[0.08] hover:text-white"
                 }`}
               >
@@ -209,7 +209,7 @@ export function CardCreator({ onCreated }: CardCreatorProps) {
         <button
           type="submit"
           disabled={loading || !canSubmit}
-          className="tap-scale w-full rounded-[1.45rem] bg-white py-4 text-base font-black text-zinc-950 shadow-xl shadow-violet-500/15 disabled:opacity-40"
+          className="tap-scale w-full rounded-[1.45rem] bg-white py-4 text-base font-black text-zinc-950 shadow-xl shadow-blue-900/25 disabled:opacity-40"
         >
           {loading ? "Сохраняю..." : "Добавить в ленту"}
         </button>

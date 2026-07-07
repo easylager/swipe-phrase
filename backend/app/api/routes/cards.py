@@ -4,11 +4,13 @@ from app.api.schemas import (
     CardResponse,
     CreateCardRequest,
     DailyStatsResponse,
+    MatchdayStatsResponse,
     RequestOverviewBody,
     SnoozeCardRequest,
     StatsResponse,
     SubmitReviewRequest,
     UpdateCardRequest,
+    VocabularyStatsResponse,
 )
 from app.api.deps import get_card_repo, get_current_user
 from app.application.use_cases.generate_overview import generate_overview_for_card
@@ -261,6 +263,12 @@ async def get_stats(repo: CardRepository = Depends(_repo)) -> StatsResponse:
     return StatsResponse(**stats)
 
 
+@router.get("/stats/matchday", response_model=MatchdayStatsResponse)
+async def get_matchday_stats(repo: CardRepository = Depends(_repo)) -> MatchdayStatsResponse:
+    data = await repo.get_matchday_stats()
+    return MatchdayStatsResponse(**data)
+
+
 @router.get("/stats/daily", response_model=DailyStatsResponse)
 async def get_daily_stats(
     days: int = 14,
@@ -268,3 +276,11 @@ async def get_daily_stats(
 ) -> DailyStatsResponse:
     data = await repo.get_swipes_by_day(days=days)
     return DailyStatsResponse(**data)
+
+
+@router.get("/stats/vocabulary", response_model=VocabularyStatsResponse)
+async def get_vocabulary_stats(
+    repo: CardRepository = Depends(_repo),
+) -> VocabularyStatsResponse:
+    data = await repo.get_vocabulary_stats()
+    return VocabularyStatsResponse(**data)
