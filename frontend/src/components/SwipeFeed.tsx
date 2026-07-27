@@ -165,25 +165,30 @@ export function SwipeFeed() {
   );
 
   const handleFlip = useCallback(() => {
-    if (isChallenge) return;
     if (!isFlipped) flipTimeRef.current = Date.now();
     setIsFlipped((f) => !f);
-  }, [isFlipped, isChallenge]);
+  }, [isFlipped]);
 
-  const skipUsageChallenge = useCallback(() => {
+  const applyUsageChallenge = useCallback(() => {
     if (!current || !isUsageChallengeItem(current) || busyRef.current) return;
     busyRef.current = true;
     setBusy(true);
-    setActionNotice("Ситуация пропущена");
+    const comboAfter = incrementCombo();
+    bumpSwipes(true);
     void api
-      .submitUsageChallenge(current.challenge.id, "again", Date.now() - cardShownRef.current)
+      .submitUsageChallenge(
+        current.challenge.id,
+        "applied",
+        Date.now() - cardShownRef.current,
+        comboAfter,
+      )
       .then(() => api.getStats())
       .then(setStats)
       .catch(() => {});
     goNext();
     busyRef.current = false;
     setBusy(false);
-  }, [current, goNext]);
+  }, [current, goNext, bumpSwipes, incrementCombo]);
 
   const handleSwipeUp = useCallback(() => {
     if (!current || busyRef.current) return;
@@ -192,11 +197,11 @@ export function SwipeFeed() {
       return;
     }
     if (current.kind === "usage_challenge") {
-      skipUsageChallenge();
+      applyUsageChallenge();
       return;
     }
     swipeAwayAsKnown(current.card);
-  }, [current, dismissAd, skipUsageChallenge, swipeAwayAsKnown]);
+  }, [current, dismissAd, applyUsageChallenge, swipeAwayAsKnown]);
 
   const { y, scale, opacity, handlers } = useCardSwipe({
     onSwipeUp: handleSwipeUp,
@@ -362,8 +367,10 @@ export function SwipeFeed() {
         <UsageChallengeCard
           card={item.card}
           challenge={item.challenge}
-          onRespond={preview ? () => {} : submitUsageChallenge}
+          isFlipped={flipped}
+          onRespond={preview ? undefined : submitUsageChallenge}
           disabled={busy}
+          preview={preview}
         />
       );
     }
@@ -412,7 +419,7 @@ export function SwipeFeed() {
     current.kind === "ad"
       ? "Свайп вверх — пропустить · тап — детали"
       : current.kind === "usage_challenge"
-        ? "Не знаешь — «Показать фразу» · свайп вверх — пропустить"
+        ? "Свайп вверх — сказал · тап — фраза"
         : "Свайп вверх — знаю · тап — ответ";
 
   return (
@@ -433,7 +440,7 @@ export function SwipeFeed() {
         <div className="relative min-h-0 flex-1 px-4 pt-2">
           <motion.div
             key={current.id}
-            className={`absolute inset-0 z-10 select-none ${isChallenge ? "pointer-events-auto" : "pointer-events-none"}`}
+            className="pointer-events-none absolute inset-0 z-10 select-none"
             style={{ y, scale, opacity }}
           >
             {renderFeedItem(current, isFlipped)}
