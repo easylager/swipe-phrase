@@ -170,20 +170,38 @@ export function SwipeFeed() {
     setIsFlipped((f) => !f);
   }, [isFlipped, isChallenge]);
 
+  const skipUsageChallenge = useCallback(() => {
+    if (!current || !isUsageChallengeItem(current) || busyRef.current) return;
+    busyRef.current = true;
+    setBusy(true);
+    setActionNotice("Ситуация пропущена");
+    void api
+      .submitUsageChallenge(current.challenge.id, "again", Date.now() - cardShownRef.current)
+      .then(() => api.getStats())
+      .then(setStats)
+      .catch(() => {});
+    goNext();
+    busyRef.current = false;
+    setBusy(false);
+  }, [current, goNext]);
+
   const handleSwipeUp = useCallback(() => {
     if (!current || busyRef.current) return;
     if (current.kind === "ad") {
       dismissAd();
       return;
     }
-    if (current.kind === "usage_challenge") return;
+    if (current.kind === "usage_challenge") {
+      skipUsageChallenge();
+      return;
+    }
     swipeAwayAsKnown(current.card);
-  }, [current, dismissAd, swipeAwayAsKnown]);
+  }, [current, dismissAd, skipUsageChallenge, swipeAwayAsKnown]);
 
   const { y, scale, opacity, handlers } = useCardSwipe({
     onSwipeUp: handleSwipeUp,
     onTap: handleFlip,
-    disabled: busy || isChallenge,
+    disabled: busy,
   });
 
   const animateCardExit = useCallback(async () => {
@@ -394,7 +412,7 @@ export function SwipeFeed() {
     current.kind === "ad"
       ? "Свайп вверх — пропустить · тап — детали"
       : current.kind === "usage_challenge"
-        ? "Ответь вслух → «Я ответил — проверить»"
+        ? "Не знаешь — «Показать фразу» · свайп вверх — пропустить"
         : "Свайп вверх — знаю · тап — ответ";
 
   return (
@@ -416,7 +434,7 @@ export function SwipeFeed() {
           <motion.div
             key={current.id}
             className={`absolute inset-0 z-10 select-none ${isChallenge ? "pointer-events-auto" : "pointer-events-none"}`}
-            style={isChallenge ? undefined : { y, scale, opacity }}
+            style={{ y, scale, opacity }}
           >
             {renderFeedItem(current, isFlipped)}
           </motion.div>

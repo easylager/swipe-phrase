@@ -1,94 +1,168 @@
+"""
+LINKEDIN POST — copy below
+──────────────────────────
+
+Your app is green in staging. Demo day? Flawless.
+
+Then real traffic hits — and these five patterns turn "works on my machine" into a 3am pager.
+
+Here are 5 things that quietly kill apps under load (and how to fix them).
+
+1. No idempotency — retries become double charges
+Clients retry on timeouts. Load balancers replay requests. Without an idempotency key, every retry is a fresh payment, email, or shipment. Same user, charged twice. Not a great look.
+
+2. No backpressure — spikes eat all your memory
+When producers outrun workers, unbounded queues balloon until the process OOMs. You didn't run out of CPU — you ran out of RAM babysitting jobs that never finished.
+
+3. Unbounded concurrency — you DDoS your own stack
+asyncio.gather on 10,000 items feels fast in a notebook. In prod you just opened 10,000 DB connections and HTTP calls at once. Your dependencies have limits. Your code should too.
+
+4. External APIs inside DB transactions — locks pile up
+A transaction holds row locks until it commits. Call Stripe or a partner API inside that window and a 50ms write becomes a 30s lock. Everything else waits in line behind you.
+
+5. Retry storms — you amplify the outage
+Fifty workers retrying instantly don't help a dying service — they bury it. Backoff + jitter spread the pain. And only retry what's safe to run twice.
+
+(Snippets below illustrate the principles — not copy-paste production code.)
+
+What's the production bug that taught you the most?
+Share it below.
+"""
+
+# Дальше по одному скриншоту на каждый пример
+
+import asyncio
+
+# ── 1. No idempotency — retries become double charges ───────────────────────
+# Problem: client retries on timeout → second payment / email / shipment.
 
 
-from pydantic import BaseModel, field_validator, Field, computed_field
-from typing import Literal
+async def charge_card(amount: int, idempotency_key: str): ...
+async def find_payment_by_key(key: str): ...
+async def save_payment(key: str, result): ...
 
 
-#1. Custom validators for business rules
+async def create_payment_bad(amount: int):
+    # BAD: every retry is a brand-new charge
+    return await charge_card(amount, idempotency_key="")
 
 
-class Order(BaseModel):
-    items: list[str]
-    total: float
-    discount_code: str | None = None
-
-    @field_validator('total')
-    def positive_total(cls, v):
-        # Fail fast — invalid data never reaches your database
-        if v <= 0:
-            raise ValueError('Total must be positive — no free lunches')
-        return v
-
-    @field_validator('discount_code')
-    def validate_discount(cls, v):
-        # Real business logic: only valid codes from our system
-        if v and not v.startswith('DISC-'):
-            raise ValueError('Invalid discount code format')
-        return v
+async def create_payment_good(amount: int, idempotency_key: str):
+    # GOOD: same key → same result, safe to retry
+    if existing := await find_payment_by_key(idempotency_key):
+        return existing
+    result = await charge_card(amount, idempotency_key=idempotency_key)
+    await save_payment(idempotency_key, result)
+    return result
 
 
-
-# 2. Aliases for ugly external APIs
-
-
-class StripeWebhook(BaseModel):
-    # Stripe sends camelCase, we keep our code clean
-    payment_intent: str = Field(alias='paymentIntent')
-    customer_email: str = Field(alias='customerEmail')
-    amount_received: int = Field(alias='amountReceived')
-    # Now we can do webhook.payment_intent instead of webhook['paymentIntent']
+# ── 2. No backpressure — spikes eat all your memory ─────────────────────────
+# Problem: accept every job instantly → unbounded list → OOM under spike.
 
 
-# 3. Optional + default = explicit intent
-
-class NotificationConfig(BaseModel):
-    # Default if missing — sensible fallback
-    retry_count: int = 3
-    timeout_seconds: int = 30
-    
-    # None means "not configured" — you handle it separately
-    webhook_url: str | None = None  
-    slack_channel: str | None = None
-    
-    # Constrained value — prevents misconfiguration
-    max_retries: int = Field(default=5, ge=1, le=10)
+async def process_job(job: dict): ...
 
 
-# 4. Discriminated unions for event-driven systems
-
-class SuccessData(BaseModel):
-    transaction_id: str
-    amount: float
-    receipt_url: str
-
-class FailureData(BaseModel):
-    error_code: str
-    error_message: str
-    retry_after: int | None = None
-
-class PaymentWebhook(BaseModel):
-    # Different shapes based on status
-    status: Literal['paid', 'failed', 'refunded']
-    data: SuccessData | FailureData = Field(discriminator='status')
-    # status='paid' → data must be SuccessData
-    # status='failed' → data must be FailureData
-    # Pydantic enforces this automatically
+pending: list[dict] = []  # BAD: grows forever when workers fall behind
 
 
-# 5. Serialization with computed fields
+async def enqueue_bad(job: dict):
+    pending.append(job)  # never blocks — memory absorbs the spike
 
-class ShoppingCart(BaseModel):
-    items: list[dict]  # each has {'name': str, 'price': float, 'qty': int}
-    shipping_cost: float = 0.0
 
-    @computed_field
-    @property
-    def subtotal(self) -> float:
-        # Calculated from items — no manual updates needed
-        return sum(item['price'] * item['qty'] for item in self.items)
+queue: asyncio.Queue[dict] = asyncio.Queue(maxsize=100)
 
-    @computed_field
-    @property
-    def total(self) -> float:
-        # Auto-updates when items change or shipping changes
-        return self.subtotal + self.shipping_cost
+
+async def enqueue_good(job: dict):
+    # GOOD: at 100 items, await put() pauses this coroutine until worker gets one
+    await queue.put(job)
+
+
+async def worker():
+    while True:
+        job = await queue.get()  # frees a slot → a blocked put() can proceed
+        await process_job(job)
+        queue.task_done()
+
+
+# ── 3. Unbounded concurrency — you DDoS your own stack ────────────────────
+# Problem: 10k tasks at once → connection pool + partner API collapse.
+
+urls = ["https://api.example.com/item/1", "..."]
+
+
+async def fetch(url: str): ...
+
+
+async def fetch_all_bad():
+    # BAD: 10,000 URLs → 10,000 simultaneous connections
+    return await asyncio.gather(*(fetch(url) for url in urls))
+
+
+limit = asyncio.Semaphore(20)  # GOOD: cap in-flight work to what infra handles
+
+
+async def fetch_limited(url: str):
+    async with limit:
+        return await fetch(url)
+
+
+async def fetch_all_good():
+    return await asyncio.gather(*(fetch_limited(url) for url in urls))
+
+
+# ── 4. External APIs inside DB transactions — locks pile up ─────────────────
+# Problem: row locked while Stripe/partner takes seconds → queue behind you.
+
+db = ...
+stripe = ...
+
+
+async def checkout_bad(order_id: str, total: int):
+    async with db.transaction():
+        order = await db.lock_order(order_id)
+        # BAD: DB lock held for entire HTTP round-trip (2–30s)
+        charge = await stripe.charge(total)
+        order.status = "paid"
+        order.charge_id = charge.id
+
+
+async def checkout_good(order_id: str, total: int, idempotency_key: str):
+    # GOOD: short txn — release locks, then call out
+    async with db.transaction():
+        order = await db.mark_payment_pending(order_id)
+
+    charge = await stripe.charge(total, idempotency_key=idempotency_key)
+
+    async with db.transaction():
+        await db.mark_paid(order_id, charge.id)
+
+
+# ── 5. Retry storms — you amplify the outage ────────────────────────────────
+# Problem: tight retry loop × many workers = harder spike than the original.
+
+import random
+
+
+async def call_partner(): ...
+
+
+async def call_partner_bad():
+    # BAD: hammers a service that is already failing
+    for _ in range(50):
+        try:
+            return await call_partner()
+        except Exception:
+            continue
+    raise RuntimeError("gave up")
+
+
+async def call_partner_good():
+    # GOOD: exponential backoff + jitter; cap attempts
+    for attempt in range(5):
+        try:
+            return await call_partner()
+        except Exception:
+            delay = min(30, 2**attempt) + random.uniform(0, 1)
+            await asyncio.sleep(delay)
+    raise RuntimeError("gave up")

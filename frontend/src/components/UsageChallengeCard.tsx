@@ -19,6 +19,12 @@ export function UsageChallengeCard({
   disabled = false,
 }: UsageChallengeCardProps) {
   const [revealed, setRevealed] = useState(false);
+  const [didNotKnow, setDidNotKnow] = useState(false);
+
+  const reveal = (unknown: boolean) => {
+    setDidNotKnow(unknown);
+    setRevealed(true);
+  };
 
   return (
     <div className="premium-card pointer-events-auto relative flex h-full min-h-0 flex-col overflow-hidden rounded-[1.85rem]">
@@ -36,9 +42,11 @@ export function UsageChallengeCard({
           )}
         </div>
         <p className="mt-2 text-xs font-medium text-zinc-400">
-          {revealed
-            ? "Честно: получилось вставить фразу в ответ?"
-            : "Прочитай ситуацию → ответь про себя или вслух по-английски"}
+          {!revealed
+            ? "Прочитай ситуацию → попробуй ответить по-английски"
+            : didNotKnow
+              ? "Вот фраза, которая сюда подходит"
+              : "Честно: получилось вставить фразу в ответ?"}
         </p>
       </div>
 
@@ -63,16 +71,32 @@ export function UsageChallengeCard({
           </p>
         )}
 
-        <div className="mt-auto pt-6">
+        <div className="mt-auto pt-6" data-no-swipe>
           {!revealed ? (
-            <button
-              type="button"
-              disabled={disabled}
-              onClick={() => setRevealed(true)}
-              className="tap-scale w-full rounded-2xl bg-white py-3.5 text-sm font-black text-zinc-950 shadow-lg shadow-emerald-900/20 disabled:opacity-50"
-            >
-              Я ответил — проверить
-            </button>
+            <div className="flex flex-col gap-2.5">
+              <button
+                type="button"
+                disabled={disabled}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  reveal(false);
+                }}
+                className="tap-scale w-full rounded-2xl bg-white py-3.5 text-sm font-black text-zinc-950 shadow-lg shadow-emerald-900/20 disabled:opacity-50"
+              >
+                Я ответил — проверить
+              </button>
+              <button
+                type="button"
+                disabled={disabled}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  reveal(true);
+                }}
+                className="tap-scale w-full rounded-2xl border border-white/15 bg-white/5 py-3.5 text-sm font-bold text-zinc-300 disabled:opacity-50"
+              >
+                Не знаю — показать фразу
+              </button>
+            </div>
           ) : (
             <AnimatePresence mode="wait">
               <motion.div
@@ -99,24 +123,44 @@ export function UsageChallengeCard({
                   )}
                 </div>
 
-                <div className="flex gap-2.5">
+                {didNotKnow ? (
                   <button
                     type="button"
                     disabled={disabled}
-                    onClick={() => onRespond("applied")}
-                    className="tap-scale flex-[1.35] rounded-2xl bg-emerald-500 py-3.5 text-sm font-black text-zinc-950 disabled:opacity-50"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onRespond("again");
+                    }}
+                    className="tap-scale w-full rounded-2xl border border-white/15 bg-white/10 py-3.5 text-sm font-black text-white disabled:opacity-50"
                   >
-                    Сказал ✓
+                    Понял — дальше
                   </button>
-                  <button
-                    type="button"
-                    disabled={disabled}
-                    onClick={() => onRespond("again")}
-                    className="tap-scale flex-1 rounded-2xl border border-red-300/20 bg-red-500/12 py-3.5 text-sm font-bold text-red-200 disabled:opacity-50"
-                  >
-                    Не знал
-                  </button>
-                </div>
+                ) : (
+                  <div className="flex gap-2.5">
+                    <button
+                      type="button"
+                      disabled={disabled}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onRespond("applied");
+                      }}
+                      className="tap-scale flex-[1.35] rounded-2xl bg-emerald-500 py-3.5 text-sm font-black text-zinc-950 disabled:opacity-50"
+                    >
+                      Сказал ✓
+                    </button>
+                    <button
+                      type="button"
+                      disabled={disabled}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onRespond("again");
+                      }}
+                      className="tap-scale flex-1 rounded-2xl border border-red-300/20 bg-red-500/12 py-3.5 text-sm font-bold text-red-200 disabled:opacity-50"
+                    >
+                      Не знал
+                    </button>
+                  </div>
+                )}
               </motion.div>
             </AnimatePresence>
           )}
