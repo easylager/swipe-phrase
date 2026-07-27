@@ -10,8 +10,15 @@ const TAP_MAX_PX = 12;
 const TAP_MAX_MS = 280;
 
 function isInteractiveTarget(target: EventTarget | null): boolean {
-  if (!(target instanceof Element)) return false;
-  return !!target.closest("button, a, input, textarea, select, [data-no-swipe]");
+  // Clicks on button label text yield a Text node — walk up to the element.
+  const el =
+    target instanceof Element
+      ? target
+      : target instanceof Node
+        ? target.parentElement
+        : null;
+  if (!el) return false;
+  return !!el.closest("button, a, input, textarea, select, [data-no-swipe]");
 }
 
 interface UseCardSwipeOptions {
