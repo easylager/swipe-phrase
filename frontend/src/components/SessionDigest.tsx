@@ -17,7 +17,6 @@ interface SessionDigestProps {
 
 export function SessionDigest({ stats, combo = 0 }: SessionDigestProps) {
   const n = stats.swipes_today;
-  const applied = stats.applied_today ?? 0;
 
   return (
     <div className="shrink-0 px-4 pb-1 pt-1">
@@ -27,11 +26,6 @@ export function SessionDigest({ stats, combo = 0 }: SessionDigestProps) {
           <span className="mx-1.5 text-sm font-black tabular-nums text-white">{n}</span>
           {swipeLabel(n)}
         </span>
-        {applied > 0 && (
-          <span className="rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-[10px] font-semibold text-emerald-200">
-            применил {applied}
-          </span>
-        )}
         <StreakBadge combo={combo} />
       </p>
     </div>

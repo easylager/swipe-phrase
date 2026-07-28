@@ -4,7 +4,6 @@ import type {
   DailyStats,
   MatchdayStats,
   ReviewRating,
-  SessionItem,
   SnoozeDays,
   Stats,
   UpdateCardPayload,
@@ -258,14 +257,9 @@ export const api = {
   me: () => request<User>("/api/auth/me"),
 
   getSession: async () => {
-    const session = await request<SessionItem[]>("/api/session");
+    const session = await request<Card[]>("/api/session");
     const stats = getCachedStats();
-    if (stats) {
-      cacheSessionAndStats(
-        session.map((item) => item.card),
-        stats,
-      );
-    }
+    if (stats) cacheSessionAndStats(session, stats);
     return session;
   },
   getStats: async () => {
@@ -302,20 +296,6 @@ export const api = {
       body: JSON.stringify({
         rating,
         flip_latency_ms: flipLatencyMs ?? null,
-        answer_latency_ms: answerLatencyMs ?? null,
-        combo_after: comboAfter ?? null,
-      }),
-    }),
-  submitUsageChallenge: (
-    challengeId: number,
-    outcome: "applied" | "again",
-    answerLatencyMs?: number,
-    comboAfter?: number,
-  ) =>
-    request<Card>(`/api/usage-challenges/${challengeId}/respond`, {
-      method: "POST",
-      body: JSON.stringify({
-        outcome,
         answer_latency_ms: answerLatencyMs ?? null,
         combo_after: comboAfter ?? null,
       }),

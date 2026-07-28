@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { animate, motion } from "framer-motion";
 import { api } from "@/lib/api";
-import { buildFeedQueue, isUsageChallengeItem } from "@/lib/feedQueue";
+import { buildFeedQueue } from "@/lib/feedQueue";
 import { clearFeedProgress, getFeedProgress, saveFeedProgress } from "@/lib/feedProgress";
 import type { Card, Stats } from "@/types/card";
 import type { FeedItem } from "@/types/feed";
@@ -11,7 +11,6 @@ import { AdCard } from "@/components/AdCard";
 import { FlashCard } from "@/components/FlashCard";
 import { OfflineBanner } from "@/components/OfflineBanner";
 import { SessionDigest } from "@/components/SessionDigest";
-import { UsageChallengeCard } from "@/components/UsageChallengeCard";
 import { useCardSwipe } from "@/hooks/useCardSwipe";
 import { useOfflineStatus } from "@/hooks/useOfflineStatus";
 import { snoozeLabel, type SnoozeDays } from "@/lib/snooze";
@@ -104,8 +103,7 @@ export function SwipeFeed() {
   }, []);
 
   const current = feed[index];
-  const currentCard = current && current.kind !== "ad" ? current.card : null;
-  const isChallenge = current ? isUsageChallengeItem(current) : false;
+  const currentCard = current && current.kind === "card" ? current.card : null;
 
   const getLatencies = () => {
     const now = Date.now();
@@ -132,16 +130,8 @@ export function SwipeFeed() {
     }
   }, [index, feed.length, finishSession]);
 
-  const bumpSwipes = useCallback((applied = false) => {
-    setStats((s) =>
-      s
-        ? {
-            ...s,
-            swipes_today: s.swipes_today + 1,
-            applied_today: applied ? (s.applied_today ?? 0) + 1 : s.applied_today,
-          }
-        : s,
-    );
+  const bumpSwipes = useCallback(() => {
+    setStats((s) => (s ? { ...s, swipes_today: s.swipes_today + 1 } : s));
   }, []);
 
   const dismissAd = useCallback(() => {
@@ -152,7 +142,7 @@ export function SwipeFeed() {
     (card: Card) => {
       const { flipLatency, answerLatency } = getLatencies();
       const comboAfter = incrementCombo();
-      bumpSwipes(false);
+      bumpSwipes();
       goNext();
 
       void api
@@ -169,39 +159,14 @@ export function SwipeFeed() {
     setIsFlipped((f) => !f);
   }, [isFlipped]);
 
-  const applyUsageChallenge = useCallback(() => {
-    if (!current || !isUsageChallengeItem(current) || busyRef.current) return;
-    busyRef.current = true;
-    setBusy(true);
-    const comboAfter = incrementCombo();
-    bumpSwipes(true);
-    void api
-      .submitUsageChallenge(
-        current.challenge.id,
-        "applied",
-        Date.now() - cardShownRef.current,
-        comboAfter,
-      )
-      .then(() => api.getStats())
-      .then(setStats)
-      .catch(() => {});
-    goNext();
-    busyRef.current = false;
-    setBusy(false);
-  }, [current, goNext, bumpSwipes, incrementCombo]);
-
   const handleSwipeUp = useCallback(() => {
     if (!current || busyRef.current) return;
     if (current.kind === "ad") {
       dismissAd();
       return;
     }
-    if (current.kind === "usage_challenge") {
-      applyUsageChallenge();
-      return;
-    }
     swipeAwayAsKnown(current.card);
-  }, [current, dismissAd, applyUsageChallenge, swipeAwayAsKnown]);
+  }, [current, dismissAd, swipeAwayAsKnown]);
 
   const { y, scale, opacity, handlers } = useCardSwipe({
     onSwipeUp: handleSwipeUp,
@@ -229,7 +194,7 @@ export function SwipeFeed() {
 
   const handleSnooze = useCallback(
     async (days: SnoozeDays) => {
-      if (!currentCard || busyRef.current || isChallenge) return;
+      if (!currentCard || busyRef.current) return;
       busyRef.current = true;
       setBusy(true);
       setActionNotice(`Отложено · ${snoozeLabel(days)}`);
@@ -241,12 +206,12 @@ export function SwipeFeed() {
         setBusy(false);
       }
     },
-    [currentCard, isChallenge, animateCardSnooze],
+    [currentCard, animateCardSnooze],
   );
 
   const submitAndAdvance = useCallback(
     async (rating: "again" | "graduated") => {
-      if (!currentCard || busyRef.current || isChallenge) return;
+      if (!currentCard || busyRef.current) return;
       busyRef.current = true;
       setBusy(true);
 
@@ -258,7 +223,7 @@ export function SwipeFeed() {
         resetCombo();
       }
 
-      bumpSwipes(false);
+      bumpSwipes();
 
       void api
         .submitReview(card.id, rating, flipLatency, answerLatency, comboAfter ?? undefined)
@@ -281,49 +246,7 @@ export function SwipeFeed() {
         setBusy(false);
       }
     },
-    [currentCard, isChallenge, goNext, bumpSwipes, incrementCombo, resetCombo, animateCardExit],
-  );
-
-  const submitUsageChallenge = useCallback(
-    async (outcome: "applied" | "again") => {
-      if (!current || !isUsageChallengeItem(current) || busyRef.current) return;
-      busyRef.current = true;
-      setBusy(true);
-
-      const answerLatency = Date.now() - cardShownRef.current;
-      const comboAfter = outcome === "applied" ? incrementCombo() : null;
-      if (outcome === "again") resetCombo();
-      bumpSwipes(outcome === "applied");
-
-      void api
-        .submitUsageChallenge(
-          current.challenge.id,
-          outcome,
-          answerLatency,
-          comboAfter ?? undefined,
-        )
-        .then(() => api.getStats())
-        .then(setStats)
-        .catch(() => {});
-
-      try {
-        if (outcome === "applied") {
-          setCelebration("Применил!");
-          setActionNotice("Фраза в деле ✓");
-          setTimeout(() => {
-            setCelebration(null);
-            goNext();
-          }, 750);
-        } else {
-          setActionNotice("Вернёмся к этой фразе");
-          await animateCardExit();
-        }
-      } finally {
-        busyRef.current = false;
-        setBusy(false);
-      }
-    },
-    [current, goNext, bumpSwipes, incrementCombo, resetCombo, animateCardExit],
+    [currentCard, goNext, bumpSwipes, incrementCombo, resetCombo, animateCardExit],
   );
 
   const handleRequestOverview = async () => {
@@ -360,19 +283,6 @@ export function SwipeFeed() {
   const renderFeedItem = (item: FeedItem, flipped: boolean, preview = false) => {
     if (item.kind === "ad") {
       return <AdCard ad={item.ad} isFlipped={flipped} />;
-    }
-
-    if (item.kind === "usage_challenge") {
-      return (
-        <UsageChallengeCard
-          card={item.card}
-          challenge={item.challenge}
-          isFlipped={flipped}
-          onRespond={preview ? undefined : submitUsageChallenge}
-          disabled={busy}
-          preview={preview}
-        />
-      );
     }
 
     return (
@@ -418,9 +328,7 @@ export function SwipeFeed() {
   const hintText =
     current.kind === "ad"
       ? "Свайп вверх — пропустить · тап — детали"
-      : current.kind === "usage_challenge"
-        ? "Свайп вверх — сказал · тап — фраза"
-        : "Свайп вверх — знаю · тап — ответ";
+      : "Свайп вверх — знаю · тап — ответ";
 
   return (
     <div className="relative flex h-full flex-col overflow-hidden touch-none" {...handlers}>
@@ -458,12 +366,8 @@ export function SwipeFeed() {
           animate={{ opacity: 1, scale: 1 }}
           className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center bg-black/60"
         >
-          <div
-            className={`rounded-3xl px-8 py-6 text-center shadow-2xl ${
-              celebration === "Применил!" ? "bg-emerald-600/90" : "bg-blue-700/90"
-            }`}
-          >
-            <p className="text-4xl">{celebration === "Применил!" ? "🗣️" : "🎉"}</p>
+          <div className="rounded-3xl bg-blue-700/90 px-8 py-6 text-center shadow-2xl">
+            <p className="text-4xl">🎉</p>
             <p className="mt-2 text-xl font-bold text-white">{celebration}</p>
           </div>
         </motion.div>

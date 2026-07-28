@@ -80,34 +80,3 @@ class ReviewModel(Base):
     reviewed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     card: Mapped["CardModel"] = relationship(back_populates="reviews")
-
-
-class UsageChallengeModel(Base):
-    """AI-generated situational prompt linked to a phrase card."""
-
-    __tablename__ = "usage_challenges"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
-    card_id: Mapped[int] = mapped_column(ForeignKey("cards.id"), nullable=False, index=True)
-    target_phrase: Mapped[str] = mapped_column(String(500), nullable=False)
-    scenario_ru: Mapped[str] = mapped_column(Text, nullable=False)
-    hint_ru: Mapped[str | None] = mapped_column(Text, nullable=True)
-    example_answer_en: Mapped[str | None] = mapped_column(Text, nullable=True)
-    status: Mapped[str] = mapped_column(String(20), default="ready")
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-
-    attempts: Mapped[list["UsageChallengeAttemptModel"]] = relationship(back_populates="challenge")
-
-
-class UsageChallengeAttemptModel(Base):
-    __tablename__ = "usage_challenge_attempts"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    challenge_id: Mapped[int] = mapped_column(ForeignKey("usage_challenges.id"), nullable=False, index=True)
-    card_id: Mapped[int] = mapped_column(ForeignKey("cards.id"), nullable=False, index=True)
-    outcome: Mapped[str] = mapped_column(String(20), nullable=False)  # applied | again
-    answer_latency_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-
-    challenge: Mapped["UsageChallengeModel"] = relationship(back_populates="attempts")

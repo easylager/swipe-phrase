@@ -26,11 +26,6 @@ class Settings(BaseSettings):
     matchday_target_reviews: int = 25
     matchday_target_accuracy: float = 65.0
 
-    # Usage challenges — AI situational prompts for well-known phrases
-    usage_challenge_min_reviews: int = 2
-    usage_challenge_min_success_rate: float = 55.0
-    usage_challenge_max_per_session: int = 5
-
     # LLM overview: ollama (local dev) | groq (cloud, Railway) | none
     llm_provider: str = "ollama"
     ollama_base_url: str = "http://localhost:11434"
