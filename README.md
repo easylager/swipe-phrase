@@ -89,7 +89,13 @@ See **[DEPLOY.md](./DEPLOY.md)** — GitHub → Railway, два сервиса (
 
 | Method | Path | Description |
 |--------|------|-------------|
+| GET | `/health` | Liveness (+ `X-Request-ID`) |
+| GET | `/health/db` | DB readiness / diagnostics |
+| POST | `/api/auth/register` | Create account |
+| POST | `/api/auth/login` | Login → JWT |
 | GET | `/api/session` | Build swipe session queue |
 | POST | `/api/cards` | Create card |
 | POST | `/api/cards/{id}/review` | Submit review |
 | GET | `/api/stats` | Progress stats |
+
+Every response includes `X-Request-ID` for client/server correlation.
