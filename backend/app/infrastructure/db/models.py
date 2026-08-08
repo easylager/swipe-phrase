@@ -1,6 +1,6 @@
 from datetime import date, datetime
 
-from sqlalchemy import Date, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint, func
+from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -65,6 +65,8 @@ class ScheduleModel(Base):
     state: Mapped[str] = mapped_column(String(20), default="new")
     due: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     last_review: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # EN face marked "Выучил" — card stays in feed only as RU prompt until RU is learned.
+    learned_en: Mapped[bool] = mapped_column(Boolean, default=False)
 
     card: Mapped["CardModel"] = relationship(back_populates="schedule")
 

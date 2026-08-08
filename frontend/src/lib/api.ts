@@ -13,6 +13,7 @@ import type { SquadCollection } from "@/types/collection";
 import type { AuthResponse, User } from "@/types/user";
 import { getToken } from "@/lib/auth";
 import {
+  applyCachedReview,
   applyCachedSnooze,
   bumpCachedSwipeCount,
   enqueueReview,
@@ -99,11 +100,12 @@ function offlineReview(
   flipLatencyMs?: number,
   answerLatencyMs?: number,
   comboAfter?: number,
+  promptLang?: "en" | "ru",
 ): Card {
-  enqueueReview({ cardId, rating, flipLatencyMs, answerLatencyMs, comboAfter });
+  enqueueReview({ cardId, rating, flipLatencyMs, answerLatencyMs, comboAfter, promptLang });
   notifyPendingReviewsChanged();
   bumpCachedSwipeCount();
-  return getCachedCard(cardId) ?? ({ id: cardId } as Card);
+  return applyCachedReview(cardId, rating, promptLang) ?? getCachedCard(cardId) ?? ({ id: cardId } as Card);
 }
 
 function offlineSnooze(cardId: number, days: SnoozeDays): Card {
@@ -121,6 +123,7 @@ function handleOfflinePost(path: string, body: Record<string, unknown>): Card | 
       (body.flip_latency_ms as number | null) ?? undefined,
       (body.answer_latency_ms as number | null) ?? undefined,
       (body.combo_after as number | null) ?? undefined,
+      (body.prompt_lang as "en" | "ru" | null) ?? undefined,
     );
   }
 
@@ -214,6 +217,7 @@ export async function syncPendingReviews(): Promise<number> {
           flip_latency_ms: review.flipLatencyMs ?? null,
           answer_latency_ms: review.answerLatencyMs ?? null,
           combo_after: review.comboAfter ?? null,
+          prompt_lang: review.promptLang ?? null,
         }),
       });
       removePendingReview(review.id);
@@ -290,6 +294,7 @@ export const api = {
     flipLatencyMs?: number,
     answerLatencyMs?: number,
     comboAfter?: number,
+    promptLang?: "en" | "ru",
   ) =>
     request<Card>(`/api/cards/${cardId}/review`, {
       method: "POST",
@@ -298,6 +303,7 @@ export const api = {
         flip_latency_ms: flipLatencyMs ?? null,
         answer_latency_ms: answerLatencyMs ?? null,
         combo_after: comboAfter ?? null,
+        prompt_lang: promptLang ?? null,
       }),
     }),
   snoozeCard: (cardId: number, days: SnoozeDays) =>

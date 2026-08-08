@@ -20,6 +20,7 @@ export interface PendingReview {
   flipLatencyMs?: number;
   answerLatencyMs?: number;
   comboAfter?: number;
+  promptLang?: "en" | "ru";
   createdAt: number;
 }
 
@@ -135,6 +136,35 @@ export function applyCachedSnooze(cardId: number, days: number): Card | null {
   const session = cache.session.map((card) =>
     card.id === cardId ? { ...card, due } : card,
   );
+  setOfflineCache(session, cache.stats);
+  return session.find((card) => card.id === cardId) ?? null;
+}
+
+/** Reflect Выучил locally so offline session rebuilds don't revive EN faces. */
+export function applyCachedReview(
+  cardId: number,
+  rating: ReviewRating,
+  promptLang?: "en" | "ru",
+): Card | null {
+  const cache = getOfflineCache();
+  if (!cache) return null;
+
+  if (rating === "graduated" && promptLang !== "en") {
+    const removed = cache.session.find((card) => card.id === cardId) ?? null;
+    setOfflineCache(
+      cache.session.filter((card) => card.id !== cardId),
+      cache.stats,
+    );
+    return removed ? { ...removed, learned_en: true, state: "graduated" } : null;
+  }
+
+  const session = cache.session.map((card) => {
+    if (card.id !== cardId) return card;
+    if (rating === "graduated" && promptLang === "en") {
+      return { ...card, learned_en: true, prompt_lang: "ru" as const };
+    }
+    return card;
+  });
   setOfflineCache(session, cache.stats);
   return session.find((card) => card.id === cardId) ?? null;
 }

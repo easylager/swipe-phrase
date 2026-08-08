@@ -48,9 +48,23 @@ async def _drop_legacy_roast_columns(conn) -> None:
         await conn.execute(text("ALTER TABLE cards DROP COLUMN roast_status"))
 
 
+async def _ensure_learned_en_column(conn) -> None:
+    if settings.is_postgres:
+        await conn.execute(
+            text("ALTER TABLE schedules ADD COLUMN IF NOT EXISTS learned_en BOOLEAN DEFAULT FALSE")
+        )
+        return
+
+    result = await conn.execute(text("PRAGMA table_info(schedules)"))
+    columns = {row[1] for row in result.fetchall()}
+    if "learned_en" not in columns:
+        await conn.execute(text("ALTER TABLE schedules ADD COLUMN learned_en BOOLEAN DEFAULT 0"))
+
+
 async def _run_migrations(conn) -> None:
     """Schema patches for existing databases (SQLite + Postgres)."""
     await _drop_legacy_roast_columns(conn)
+    await _ensure_learned_en_column(conn)
 
     if settings.is_postgres:
         return

@@ -26,6 +26,7 @@ class SessionCandidate:
     bucket: str
     overview: str | None = None
     overview_status: str = "idle"
+    learned_en: bool = False
 
 
 class SessionBuilder:
@@ -78,7 +79,11 @@ class SessionBuilder:
             clusters = {c.cluster for c in candidates if c.cluster}
             if clusters:
                 picked = random.choice(list(clusters))
-                cluster_pool = [c for c in candidates if c.cluster == picked]
+                cluster_pool = [
+                    c
+                    for c in candidates
+                    if c.cluster == picked and c.state != CardState.GRADUATED
+                ]
 
         refresh = [
             c for c in candidates

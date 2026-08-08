@@ -43,6 +43,7 @@ class SubmitReviewRequest(BaseModel):
     flip_latency_ms: int | None = Field(None, ge=0)
     answer_latency_ms: int | None = Field(None, ge=0)
     combo_after: int | None = Field(None, ge=0, le=9999)
+    prompt_lang: str | None = Field(None, pattern="^(en|ru)$")
 
 
 class RequestOverviewBody(BaseModel):
@@ -65,6 +66,7 @@ class CardResponse(BaseModel):
     state: str
     due: str
     bucket: str | None = None
+    learned_en: bool = False
 
     model_config = {"from_attributes": True}
 

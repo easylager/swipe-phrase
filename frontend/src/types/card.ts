@@ -11,6 +11,8 @@ export interface Card {
   state: string;
   due: string;
   bucket?: string | null;
+  /** EN face already marked Выучил — only RU prompts remain in the feed. */
+  learned_en?: boolean;
   /** Random front language for this session appearance — client-side only. */
   prompt_lang?: PromptLang;
 }

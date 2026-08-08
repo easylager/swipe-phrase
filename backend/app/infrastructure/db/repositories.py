@@ -105,6 +105,7 @@ class CardRepository:
                     bucket="",
                     overview=card.overview,
                     overview_status=card.overview_status or "skipped",
+                    learned_en=bool(schedule.learned_en),
                 )
             )
         return candidates
@@ -115,6 +116,7 @@ class CardRepository:
         rating: ReviewRating,
         flip_latency_ms: int | None = None,
         answer_latency_ms: int | None = None,
+        prompt_lang: str | None = None,
     ) -> CardModel | None:
         card = await self.get_by_id(card_id)
         if not card or not card.schedule:
@@ -149,13 +151,23 @@ class CardRepository:
             }
         )
 
-        if rating == ReviewRating.GRADUATED:
+        # Выучил on EN face: hide English from feed, keep RU side in rotation.
+        # Выучил on RU face (or no lang): graduate the whole phrase out of the feed.
+        graduate_fully = rating == ReviewRating.GRADUATED and prompt_lang != "en"
+        learn_en_only = rating == ReviewRating.GRADUATED and prompt_lang == "en"
+
+        if graduate_fully:
             updated_fsrs, due = self._scheduler.schedule(fsrs_card, rating, now)
             schedule.state = CardState.GRADUATED.value
+            schedule.learned_en = True
             schedule.due = due
             schedule.last_review = now
             schedule.stability = updated_fsrs.stability or schedule.stability or 0.0
             schedule.difficulty = updated_fsrs.difficulty or schedule.difficulty or 0.0
+        elif learn_en_only:
+            schedule.learned_en = True
+            schedule.last_review = now
+            schedule.reps = schedule.reps + 1
         else:
             updated_fsrs, due = self._scheduler.schedule(fsrs_card, rating, now)
             fsrs_data = self._scheduler.from_fsrs_card(updated_fsrs)

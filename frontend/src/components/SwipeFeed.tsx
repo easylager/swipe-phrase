@@ -3,9 +3,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { animate, motion } from "framer-motion";
 import { api } from "@/lib/api";
-import { buildFeedQueue } from "@/lib/feedQueue";
+import { buildFeedQueue, removeLearnedFromFeed } from "@/lib/feedQueue";
 import { clearFeedProgress, getFeedProgress, saveFeedProgress } from "@/lib/feedProgress";
-import type { Card, Stats } from "@/types/card";
+import type { Card, PromptLang, Stats } from "@/types/card";
 import type { FeedItem } from "@/types/feed";
 import { AdCard } from "@/components/AdCard";
 import { FlashCard } from "@/components/FlashCard";
@@ -97,7 +97,15 @@ export function SwipeFeed() {
     setFeed((prev) =>
       prev.map((item) => {
         if (item.kind === "ad" || item.card.id !== updated.id) return item;
-        return { ...item, card: { ...updated, prompt_lang: item.card.prompt_lang } };
+        return {
+          ...item,
+          card: {
+            ...updated,
+            prompt_lang: updated.learned_en
+              ? "ru"
+              : (item.card.prompt_lang ?? updated.prompt_lang),
+          },
+        };
       }),
     );
   }, []);
@@ -216,6 +224,7 @@ export function SwipeFeed() {
       setBusy(true);
 
       const card = currentCard;
+      const promptLang: PromptLang = card.prompt_lang ?? "en";
       const { flipLatency, answerLatency } = getLatencies();
       const comboAfter = rating === "graduated" ? incrementCombo() : null;
 
@@ -226,18 +235,39 @@ export function SwipeFeed() {
       bumpSwipes();
 
       void api
-        .submitReview(card.id, rating, flipLatency, answerLatency, comboAfter ?? undefined)
+        .submitReview(
+          card.id,
+          rating,
+          flipLatency,
+          answerLatency,
+          comboAfter ?? undefined,
+          promptLang,
+        )
         .then(() => api.getStats())
         .then(setStats)
         .catch(() => {});
 
       try {
         if (rating === "graduated") {
+          const { feed: nextFeed, index: nextIndex } = removeLearnedFromFeed(
+            feed,
+            index,
+            card.id,
+            promptLang,
+          );
+          setFeed(nextFeed);
+          setIndex(nextIndex);
+          setIsFlipped(false);
+          flipTimeRef.current = null;
+          cardShownRef.current = Date.now();
+
           setCelebration("Выучил!");
-          setTimeout(() => {
-            setCelebration(null);
-            goNext();
-          }, 700);
+          await new Promise((resolve) => setTimeout(resolve, 700));
+          setCelebration(null);
+
+          if (nextIndex >= nextFeed.length) {
+            await finishSession();
+          }
         } else {
           await animateCardExit();
         }
@@ -246,7 +276,16 @@ export function SwipeFeed() {
         setBusy(false);
       }
     },
-    [currentCard, goNext, bumpSwipes, incrementCombo, resetCombo, animateCardExit],
+    [
+      currentCard,
+      feed,
+      index,
+      finishSession,
+      bumpSwipes,
+      incrementCombo,
+      resetCombo,
+      animateCardExit,
+    ],
   );
 
   const handleRequestOverview = async () => {

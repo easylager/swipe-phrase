@@ -47,6 +47,7 @@ def _to_response(
         state=state or (schedule.state if schedule else "new"),
         due=due or (schedule.due.isoformat() if schedule else ""),
         bucket=bucket,
+        learned_en=bool(schedule.learned_en) if schedule else False,
     )
 
 
@@ -62,6 +63,7 @@ def _candidate_to_response(candidate) -> CardResponse:
         state=candidate.state.value,
         due=candidate.due.isoformat(),
         bucket=candidate.bucket,
+        learned_en=bool(candidate.learned_en),
     )
 
 
@@ -200,6 +202,7 @@ async def submit_review(
         rating=rating,
         flip_latency_ms=body.flip_latency_ms,
         answer_latency_ms=body.answer_latency_ms,
+        prompt_lang=body.prompt_lang,
     )
     if not card:
         raise HTTPException(status_code=404, detail="Card not found")
